@@ -1,0 +1,22 @@
+/* Starter tokens inspired by the visible light/dark teal direction.
+   NOT exact values extracted from Figma. Confirm via Inspect before visual sign-off. */
+:root {
+  color-scheme: light;
+  --primary: #007b78;
+  --background: #f5f8f9;
+  --surface: #ffffff;
+  --text: #163033;
+  --muted: #556b70;
+  --border: #d9e5e7;
+  --tint: #e4f4f1;
+}
+:root[data-theme='dark'] {
+  color-scheme: dark;
+  --primary: #5fe0d1;
+  --background: #0b171d;
+  --surface: #13262e;
+  --text: #e6f1f3;
+  --muted: #aec3c8;
+  --border: #30484f;
+  --tint: #173b3d;
+}
