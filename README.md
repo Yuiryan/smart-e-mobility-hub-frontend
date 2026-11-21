@@ -70,6 +70,12 @@ Khi triển khai UC, tạo `src/features/<feature>/` với page, API adapter, ki
 
 Không đưa mật khẩu, token, API secret vào `VITE_*`: các giá trị này được đóng gói công khai vào JavaScript. Frontend không đọc/ghi `data.json` và không gọi IoT Simulator trực tiếp.
 
+## Phân công hai thành viên
+
+- **Bạn (~60–65%):** nền tảng chung, UC00–UC07, UC15, tích hợp và chuẩn bị bản demo tổng.
+- **Thành viên 2 (~35–40%):** layout vận hành và UC08–UC14, bao gồm API adapter và kiểm thử các feature này.
+- Xem phạm vi, thứ tự và quy tắc bàn giao tại [bảng phân công](docs/FEATURES.md). Tỷ lệ là ước lượng công việc frontend, không phải tỷ lệ đóng góp đã hoàn thành.
+
 ## Thứ tự bắt đầu
 
 1. Chốt frame Figma cụ thể, font, màu, spacing và asset; đọc `docs/DESIGN.md`.
