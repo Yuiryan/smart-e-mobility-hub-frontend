@@ -16,7 +16,7 @@ Copy-Item .env.example .env.local
 npm.cmd run dev
 ```
 
-Mở http://localhost:5173. Repo riêng tư: thành viên phải được chủ repo cấp quyền trước khi clone. Nếu đã có thư mục repo trên máy, chỉ cần mở terminal tại thư mục đó và bắt đầu từ `npm.cmd ci`.
+Mở http://localhost:5173. Repo công khai: mọi người có thể clone; thành viên cần được cấp quyền cộng tác để push trực tiếp. Nếu đã có thư mục repo trên máy, chỉ cần mở terminal tại thư mục đó và bắt đầu từ `npm.cmd ci`.
 
 Dùng `npm.cmd` để tránh lỗi PowerShell chặn script `npm.ps1`. Node 24 thống nhất với CI. `package-lock.json` được commit để các máy cài cùng dependency.
 
