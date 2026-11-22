@@ -37,3 +37,7 @@
 - [ ] Asset/logo/icons chính thức
 - [ ] Các trạng thái component
 - [ ] Liên kết frame cụ thể cho từng UC trong FEATURES.md
+
+## Bản triển khai JavaScript thuần
+
+Đã tham chiếu frame Home vi/light `276:4459` và nhóm Charging/preferences en/light `114:10172` trong Figma Final. Dùng teal, nền cyan nhẹ, thẻ bo góc, điều hướng dưới, vi/en và light/dark. Màu/font/spacing là xấp xỉ, chưa có giá trị Inspect chính thức; sơ đồ Hub và biểu tượng xe là minh họa, không phải asset được trích từ thiết kế.

@@ -1,22 +1,31 @@
-/* Starter tokens inspired by the visible light/dark teal direction.
-   NOT exact values extracted from Figma. Confirm via Inspect before visual sign-off. */
+/* Visually matched to Figma light/dark direction; Inspect values await design-owner confirmation. */
 :root {
   color-scheme: light;
-  --primary: #007b78;
-  --background: #f5f8f9;
-  --surface: #ffffff;
-  --text: #163033;
-  --muted: #556b70;
-  --border: #d9e5e7;
-  --tint: #e4f4f1;
+  --primary: #00858d;
+  --on-primary: #fff;
+  --background: #f3f8f9;
+  --surface: #fff;
+  --text: #17353c;
+  --muted: #61777d;
+  --border: #dce9eb;
+  --tint: #e1f6f6;
+  --outer: #eaf0f2;
+  --map-block: #c9ded8;
+  --danger: #a5394d;
+  --danger-tint: #fff0f3;
 }
 :root[data-theme='dark'] {
   color-scheme: dark;
-  --primary: #5fe0d1;
-  --background: #0b171d;
-  --surface: #13262e;
-  --text: #e6f1f3;
-  --muted: #aec3c8;
-  --border: #30484f;
-  --tint: #173b3d;
+  --primary: #62dedb;
+  --on-primary: #092c31;
+  --background: #102129;
+  --surface: #172e37;
+  --text: #eaf5f7;
+  --muted: #acc2ca;
+  --border: #2c4852;
+  --tint: #153c44;
+  --outer: #09161c;
+  --map-block: #274d49;
+  --danger: #ff9aad;
+  --danger-tint: #462632;
 }

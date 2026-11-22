@@ -1,52 +1,24 @@
-# API integration — hợp đồng cần chốt
+# Tích hợp backend
 
-Backend đích: Spring Boot REST/JSON. Hiện chưa có OpenAPI/backend source được cung cấp cho repo này. **Không có endpoint nào trong starter được khẳng định là API đã tồn tại.**
+Nguồn: https://github.com/PhuscCea07/Smart-E-Mobility-Hub — đã đọc `main` và `m1_student` tại commit `8a5aaad`.
 
-## Ví dụ đang có
+Bản backend được kiểm tra chỉ có bootstrap, common/domain và common/store/StateCoordinator. Chưa có controller/API nghiệp vụ, DTO request-response, OpenAPI hoặc luồng auth hoàn chỉnh. Không suy ra endpoint thật từ class diagram.
 
-`src/features/hubs/api.ts` sử dụng endpoint **đề xuất** `GET /api/hubs` với body là mảng:
+## Các kiểu hiện có và chênh lệch cần thống nhất
 
-```json
-[
-  {
-    "id": "hub-01",
-    "name": "Tên Hub",
-    "availableVehicles": 12,
-    "availableParking": 8
-  }
-]
-```
+| Backend hiện có                                                                 | Frontend demo                                | Việc cần chốt                                                     |
+| ------------------------------------------------------------------------------- | -------------------------------------------- | ----------------------------------------------------------------- |
+| Vehicle: id, hubId, batteryPct, status                                          | id, hubId, battery, status, type, observedAt | Mapping battery; API bổ sung type/telemetry time                  |
+| Reservation: accountId, vehicleId, pickupCodeHash, createdAt, expiresAt, status | Booking kind VEHICLE; code demo hiển thị     | Không trả hash cho UI; backend cung cấp credential đúng quy trình |
+| ParkingReservation: parkingSpaceId, startsAt, endsAt, holdExpiresAt             | Booking kind PARKING, resourceId, start/end  | Tên trường, mốc thời gian, chính sách giữ chỗ                     |
+| ChargingRequest: vehicleId, hubId, targetBatteryPct, requestedAt, status        | Booking kind CHARGING với time window, cổng  | API cấp cổng/thời gian và tính estimate                           |
+| Session: accountId, createdAt, expiresAt                                        | user trong bộ nhớ demo                       | Cookie/session, CSRF, logout, 401/403                             |
+| AccountRole: STUDENT / OPERATOR                                                 | STUDENT / OPERATOR                           | Backend luôn kiểm tra role                                        |
 
-Nếu backend trả envelope, tên trường khác hoặc endpoint khác, sửa adapter `listHubs`; không thay UI để phụ thuộc trực tiếp nhiều định dạng backend. Adapter hiện kiểm tra cấu trúc tối thiểu trước khi render. Giá trị Hub A/B/C là dữ liệu demo, không phải số liệu thật của trường.
+## Điểm tích hợp
 
-## Cấu hình
+`src/domain/service.js` là adapter thay thế demo. `src/shared/api/client.js` có timeout 15 giây, AbortSignal, JSON, xử lý HTTP và credentials include; chưa gọi endpoint nghiệp vụ. Dev proxy `/api` → `API_PROXY_TARGET` (mặc định http://localhost:8080).
 
-| Biến                | Mặc định                | Ý nghĩa                                |
-| ------------------- | ----------------------- | -------------------------------------- |
-| `VITE_DATA_SOURCE`  | `mock`                  | `mock` chạy fixture, `api` gọi backend |
-| `VITE_API_BASE_URL` | `/api`                  | URL public được build vào JS           |
-| `API_PROXY_TARGET`  | `http://localhost:8080` | Đích proxy chỉ khi chạy dev            |
+`VITE_DATA_SOURCE=mock` chạy demo. Chọn `api` hiện dừng và báo chưa tích hợp; không tự chuyển sang mock hoặc gửi các đường dẫn phỏng đoán. `VITE_API_BASE_URL` chỉ là URL công khai, không chứa secret.
 
-`vite.config.ts` không bỏ prefix `/api`. Nếu backend không có prefix, thống nhất lại proxy/contract trước. Production không dùng dev proxy: cấu hình reverse proxy `/api` hoặc API URL HTTPS và CORS phù hợp.
-
-## HTTP client
-
-`request<T>()` gửi cookie với `credentials: include`, timeout 15 giây, nhận AbortSignal, xử lý body 204 và throw `ApiError` chứa status khi HTTP lỗi. Generic T không tự xác thực JSON; mỗi adapter cần kiểm tra DTO như `listHubs`.
-
-Cookie session là lựa chọn kỹ thuật tạm thời cho lớp client, **chưa phải quyết định auth đã được backend xác nhận**. Thống nhất cookie HttpOnly/Secure/SameSite, CSRF, login/logout/session hoặc cơ chế bearer được nhóm chọn trước khi viết mutation. Không lưu token/password vào localStorage. Không tự động retry POST vì có thể lặp giao dịch.
-
-## Cần chốt với backend
-
-- [ ] OpenAPI URL/file và version
-- [ ] Login/registration/reset/session/logout; 401/403, idle timeout
-- [ ] ID/string, enum, nullable fields, thời gian ISO 8601 có timezone, đơn vị pin/kW/phút
-- [ ] Danh sách Hub, chi tiết xe, pagination/filter
-- [ ] Đặt xe/chỗ đỗ/sạc, cancellation/expiry và 409
-- [ ] Pickup/return command IDs, idempotency keys, cách đọc ACK/timeout
-- [ ] Monitoring freshness và polling hoặc SSE/WebSocket (không tự giả định)
-- [ ] Operator commands, incidents, dispatch, charging proposals, simulation
-- [ ] Error envelope và correlation ID
-
-## Quy tắc hiển thị lỗi
-
-400: trường dữ liệu sai; 401: yêu cầu đăng nhập; 403: không đủ quyền; 404: tài nguyên không còn; 409: xung đột tài nguyên/phiên bản; timeout/5xx: thông báo chưa xác định kết quả và cho tra cứu lại. Với lệnh thay đổi trạng thái, không kết luận thất bại hay thành công chỉ từ mất kết nối.
+Cần backend cung cấp: login/register/reset/session; tìm Hub/chi tiết xe; đặt/hủy xe và chỗ đỗ; mã pickup; gửi lệnh/tra cứu ACK; trả xe; đăng ký sạc; lịch sử. Thống nhất DTO, timezone ISO8601, lỗi 400/401/403/404/409, idempotency key và xử lý timeout. Đổi bộ nhớ demo sang gọi server qua adapter khi hợp đồng được duyệt.

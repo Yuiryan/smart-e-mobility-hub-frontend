@@ -1,15 +1,12 @@
 export class ApiError extends Error {
-  readonly status: number;
-  constructor(status: number, message: string) {
+  status;
+  constructor(status, message) {
     super(message);
     this.name = 'ApiError';
     this.status = status;
   }
 }
-export async function request<T>(
-  path: string,
-  options: RequestInit = {},
-): Promise<T> {
+export async function request(path, options = {}) {
   const headers = new Headers(options.headers);
   headers.set('Accept', 'application/json');
   if (options.body && !(options.body instanceof FormData))
@@ -28,6 +25,6 @@ export async function request<T>(
   );
   if (!response.ok)
     throw new ApiError(response.status, `HTTP ${response.status}`);
-  if (response.status === 204) return undefined as T;
-  return response.json() as Promise<T>;
+  if (response.status === 204) return undefined;
+  return response.json();
 }

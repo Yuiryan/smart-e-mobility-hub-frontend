@@ -2,24 +2,24 @@
 
 Phân công frontend Submission 4 cho **hai người**, theo yêu cầu người sở hữu repo nhận phần nhiều hơn. Tạm gọi là **Bạn** và **Thành viên 2** vì chưa có tên/tài khoản của người còn lại. Phân công này thay thế phân công frontend theo năm người ở bản trước; không thay đổi tác giả báo cáo Submission 3. Mỗi UC vẫn là một hạng mục riêng.
 
-| UC   | Chức năng            | Route starter                  | Phụ trách    | Trạng thái                       |
-| ---- | -------------------- | ------------------------------ | ------------ | -------------------------------- |
-| UC00 | Tài khoản            | `/account`                     | Bạn          | Scaffold                         |
-| UC01 | Tìm Hub              | `/student/hubs`                | Bạn          | Ví dụ mock + adapter API đề xuất |
-| UC02 | Chi tiết xe          | `/student/vehicles/:vehicleId` | Bạn          | Scaffold                         |
-| UC03 | Đặt xe               | `/student/reservations`        | Bạn          | Scaffold                         |
-| UC04 | Đặt chỗ đỗ           | `/student/parking`             | Bạn          | Scaffold                         |
-| UC05 | Nhận xe QR           | `/student/pickup`              | Bạn          | Scaffold                         |
-| UC06 | Trả xe               | `/student/return`              | Bạn          | Scaffold                         |
-| UC07 | Đăng ký sạc          | `/student/charging`            | Bạn          | Scaffold                         |
-| UC08 | Tổng quan mạng lưới  | `/operator/overview`           | Thành viên 2 | Scaffold                         |
-| UC09 | Can thiệp tài nguyên | `/operator/interventions`      | Thành viên 2 | Scaffold                         |
-| UC10 | Cảnh báo quá tải     | `/operator/alerts`             | Thành viên 2 | Scaffold                         |
-| UC11 | Điều phối xe         | `/operator/dispatch`           | Thành viên 2 | Scaffold                         |
-| UC12 | Quản lý sự cố        | `/operator/incidents`          | Thành viên 2 | Scaffold                         |
-| UC13 | Lập lịch sạc         | `/operator/charging`           | Thành viên 2 | Scaffold                         |
-| UC14 | Mô phỏng What-if     | `/operator/simulation`         | Thành viên 2 | Scaffold                         |
-| UC15 | Cài đặt giao diện    | `/settings`                    | Bạn          | Preferences starter              |
+| UC   | Chức năng            | Route (sau #)                  | Phụ trách    | Trạng thái             |
+| ---- | -------------------- | ------------------------------ | ------------ | ---------------------- |
+| UC00 | Tài khoản            | `/account`                     | Bạn          | Đã có luồng demo       |
+| UC01 | Tìm Hub              | `/student/hubs`                | Bạn          | Đã có luồng demo       |
+| UC02 | Chi tiết xe          | `/student/vehicles/:vehicleId` | Bạn          | Đã có luồng demo       |
+| UC03 | Đặt xe               | `/student/reservations`        | Bạn          | Đã có luồng demo       |
+| UC04 | Đặt chỗ đỗ           | `/student/parking`             | Bạn          | Đã có luồng demo       |
+| UC05 | Nhận xe QR           | `/student/pickup`              | Bạn          | Đã có luồng demo       |
+| UC06 | Trả xe               | `/student/return`              | Bạn          | Đã có luồng demo       |
+| UC07 | Đăng ký sạc          | `/student/charging`            | Bạn          | Đã có luồng demo       |
+| UC08 | Tổng quan mạng lưới  | `/operator/overview`           | Thành viên 2 | Scaffold               |
+| UC09 | Can thiệp tài nguyên | `/operator/interventions`      | Thành viên 2 | Scaffold               |
+| UC10 | Cảnh báo quá tải     | `/operator/alerts`             | Thành viên 2 | Scaffold               |
+| UC11 | Điều phối xe         | `/operator/dispatch`           | Thành viên 2 | Scaffold               |
+| UC12 | Quản lý sự cố        | `/operator/incidents`          | Thành viên 2 | Scaffold               |
+| UC13 | Lập lịch sạc         | `/operator/charging`           | Thành viên 2 | Scaffold               |
+| UC14 | Mô phỏng What-if     | `/operator/simulation`         | Thành viên 2 | Scaffold               |
+| UC15 | Cài đặt giao diện    | `/settings`                    | Bạn          | Đã có vi/en + sáng/tối |
 
 ## Khối lượng và phạm vi
 
@@ -67,7 +67,7 @@ Chưa ấn định ngày vì chưa có hạn nộp và thời gian rảnh của 
 
 ## Tránh sửa trùng và cách mở PR
 
-- **Bạn** chủ trì thay đổi `src/App.tsx`, `src/shared/`, `src/styles/`, cấu hình build/CI và catalog route.
+- **Bạn** chủ trì thay đổi `src/main.js`, `src/shared/`, `src/styles/`, cấu hình build/CI và catalog route.
 - **Thành viên 2** tạo module vận hành trong `src/features/` (overview, interventions, alerts, dispatch, incidents, charging-schedule, simulation), cùng component riêng của dashboard.
 - Đây là cấu trúc thư mục cần tạo khi triển khai; starter hiện chưa có sẵn các module nghiệp vụ này.
 - Khi cần component chung mới, thống nhất props trước. Thay đổi router/component chung trong PR nhỏ riêng; không tự sửa đồng thời cùng file.
@@ -90,3 +90,7 @@ Chưa ấn định ngày vì chưa có hạn nộp và thời gian rảnh của 
 Đăng nhập đúng/sai/quyền; tìm Hub và dữ liệu rỗng/cũ; đặt cùng tài nguyên bị 409; QR hết hạn/sai; lệnh ACK trễ/mất; trả xe có sự cố/pin thấp; đăng ký sạc trùng lịch; dashboard mất dữ liệu; can thiệp bị từ chối; điều phối không đủ chỗ; proposal không tự áp dụng vào thực tế; đổi ngôn ngữ/theme giữ đúng trạng thái giao diện.
 
 Những tiêu chí này là backlog kiểm thử, không phải kết quả kiểm thử đã thực thi.
+
+## Trạng thái triển khai hiện tại
+
+UC00–07/15 đã có giao diện và luồng JavaScript thuần với dữ liệu demo. UC08–14 vẫn là trang chờ triển khai của thành viên 2. API thật chưa tích hợp vì backend chưa công bố endpoint. Tỷ lệ ở trên là phân công dự kiến, không phải chứng nhận hoàn thành production.
