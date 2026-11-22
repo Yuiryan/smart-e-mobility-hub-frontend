@@ -93,4 +93,6 @@ Những tiêu chí này là backlog kiểm thử, không phải kết quả ki�
 
 ## Trạng thái triển khai hiện tại
 
-UC00–07/15 đã có giao diện và luồng JavaScript thuần với dữ liệu demo. UC08–14 vẫn là trang chờ triển khai của thành viên 2. API thật chưa tích hợp vì backend chưa công bố endpoint. Tỷ lệ ở trên là phân công dự kiến, không phải chứng nhận hoàn thành production.
+UC00–07/15 đã có giao diện và luồng JavaScript thuần với dữ liệu demo. UC08–14 vẫn là trang chờ triển khai của thành viên 2. UC01 đã nối API thật trên backend m1_student (58c5985); các API khác chưa hiện thực. Tỷ lệ ở trên là phân công dự kiến, không phải chứng nhận hoàn thành production.
+
+UC01: thêm tìm theo origin/destination, bán kính, trạng thái telemetry và lỗi API trong chế độ `dev:api`. Các luồng demo của UC còn lại vẫn tách riêng.

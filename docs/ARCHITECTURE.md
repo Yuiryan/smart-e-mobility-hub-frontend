@@ -8,8 +8,8 @@ index.html → main.js (hash router, events, role guard)
   → shared/ui.js, messages.js, scanner.js
   → domain/service.js
       → mocks/engine.js (chế độ demo)
-      → shared/api/client.js (hạ tầng HTTP, chưa gắn API nghiệp vụ)
-  → Spring Boot (khi có hợp đồng API)
+      → features/hub-search-api.js → shared/api/client.js (UC01 thật)
+  → Spring Boot m1_student (UC01 hiện có)
 ```
 
 Backend sở hữu xác thực/phân quyền, giao dịch nguyên tử, tài nguyên, lưu trữ và IoT simulator. Frontend không đọc/ghi `data.json`, không điều khiển thiết bị thật. Kiểm tra trong DemoEngine chỉ mô phỏng các quy tắc để phát triển UI; không thay thế server.
@@ -21,3 +21,7 @@ Phiên demo nằm trong bộ nhớ, hết hạn sau 30 phút không tương tác
 Lệnh pickup/return có PENDING → SUCCESS/FAILED/TIMEOUT; gửi lệnh chưa phải thành công. TIMEOUT giữ trạng thái chờ đối soát, không cho gửi lại. Reload đặt lại demo; đây không phải cách đối soát trong production. Backend cần hỗ trợ truy vấn trạng thái/idempotency.
 
 IDs dùng JavaScript string. DTO demo chưa phải hợp đồng API. Nội dung giao diện vi/en, định danh mã nguồn tiếng Anh, tài liệu tiếng Việt.
+
+## Chế độ API
+
+`main.js` chuyển sang `live-search.js` khi bật API. Không dùng snapshot/mock hoặc route guard demo trong chế độ này. UC01 public theo controller hiện tại; các route còn lại báo chưa hỗ trợ. `dev:api`/`build:api` bật chế độ API rõ ràng. Mỗi request có thể hủy khi rời trang; response cũ không ghi đè trang mới. Tọa độ chỉ giữ trong bộ nhớ form, không ghi storage.
