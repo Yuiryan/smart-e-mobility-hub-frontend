@@ -1,45 +1,23 @@
 # Kiến trúc frontend
 
-## Nguồn và phạm vi
-
-Dựa trên kiến trúc đã thống nhất ở Submission 3 (`Kien_truc_tong_the.md`) và Figma Final. Đây là diễn giải ranh giới frontend, không thay thế báo cáo kiến trúc hoặc thêm backend mới.
+HTML + CSS + JavaScript thuần, ES modules. Vite phục vụ phát triển/build; không có React, JSX, TypeScript hay router framework.
 
 ```text
-Browser SPA
-  Student routes / Operator routes
-        ↓
-  Feature pages → shared UI + preferences
-        ↓
-  Feature API adapters → HTTP client
-        ↓ HTTPS / REST / JSON
-  Spring Boot Controllers → Services → Repositories
-        ├─ In-memory state + data.json trên máy chủ
-        └─ In-process IoT Simulator
+index.html → main.js (hash router, events, role guard)
+  → features/account.js, student.js và các module vận hành tiếp theo
+  → shared/ui.js, messages.js, scanner.js
+  → domain/service.js
+      → mocks/engine.js (chế độ demo)
+      → shared/api/client.js (hạ tầng HTTP, chưa gắn API nghiệp vụ)
+  → Spring Boot (khi có hợp đồng API)
 ```
 
-Một repo và một bundle SPA dùng hai khu vực route để bắt đầu làm việc chung. Nếu nhóm cần hai bundle triển khai độc lập, đó là quyết định cần thống nhất riêng; starter hiện không cấu hình hai ứng dụng độc lập.
+Backend sở hữu xác thực/phân quyền, giao dịch nguyên tử, tài nguyên, lưu trữ và IoT simulator. Frontend không đọc/ghi `data.json`, không điều khiển thiết bị thật. Kiểm tra trong DemoEngine chỉ mô phỏng các quy tắc để phát triển UI; không thay thế server.
 
-## Ranh giới trách nhiệm
+`main.js` dựng HTML qua các hàm render và dùng event delegation. Dữ liệu động phải qua `e()` để escape HTML; không chèn dữ liệu người dùng vào HTML thô. Mỗi route UC vẫn riêng trong `catalog.js`; thêm module feature mới thay vì đưa nghiệp vụ vận hành vào router.
 
-- Frontend: render, điều hướng, kiểm tra cú pháp form, hiển thị loading/error/empty, gọi API, preferences.
-- Backend: xác thực, phân quyền, kiểm tra nghiệp vụ, chống đặt trùng, phiên bản dữ liệu và ghi dữ liệu bền vững.
-- IoT simulator nằm trong tiến trình backend; frontend chỉ theo dõi kết quả lệnh qua API.
-- Không đặt cơ sở dữ liệu hoặc bản sao `data.json` trong frontend.
-- Mock chỉ phục vụ phát triển UI; không thể hiện giao dịch thật hoặc xác nhận ACK.
+Phiên demo nằm trong bộ nhớ, hết hạn sau 30 phút không tương tác. Route guard chỉ hỗ trợ trải nghiệm; quyền thật cần kiểm tra server. LocalStorage chỉ lưu vi/en và light/dark. SessionStorage chỉ lưu thời gian form theo user/route, TTL 15 phút, xóa khi đăng nhập/đăng xuất. Camera dừng khi rời trang hoặc đọc được mã. GPS chỉ yêu cầu khi người dùng bấm nút và không lưu vị trí.
 
-## Các nguyên tắc nghiệp vụ cần giữ khi triển khai
+Lệnh pickup/return có PENDING → SUCCESS/FAILED/TIMEOUT; gửi lệnh chưa phải thành công. TIMEOUT giữ trạng thái chờ đối soát, không cho gửi lại. Reload đặt lại demo; đây không phải cách đối soát trong production. Backend cần hỗ trợ truy vấn trạng thái/idempotency.
 
-- UC03/04/07: backend phân bổ tài nguyên nguyên tử; 409 cần hiển thị xung đột và yêu cầu chọn lại.
-- UC05/06/09/12: gửi lệnh thành công không đồng nghĩa thiết bị đã thực hiện; chỉ hiển thị thành công khi backend xác nhận ACK phù hợp. Có trạng thái pending/failed/timeout/reconciliation.
-- UC08/10: hiển thị thời điểm dữ liệu, cảnh báo stale/missing; chu kỳ simulator 3–5 giây không tự động là hợp đồng polling frontend.
-- UC11: điều phối chỉ thay đổi trạng thái theo kết quả backend, không sửa mảng xe cục bộ như giao dịch thật.
-- UC13/14: proposal và simulation là dữ liệu dự kiến; áp dụng vào thực tế cần bước xác nhận riêng.
-- UC15: chỉ lưu lựa chọn giao diện; nếu cache form phải loại bỏ dữ liệu nhạy cảm và có phạm vi/TTL phù hợp.
-
-## Auth chưa triển khai
-
-Nút chọn khu vực trên starter là điều hướng preview. Không phải đăng nhập và không phải route guard. Trước khi tích hợp production, thêm session provider, route guard và xử lý 401/403 theo hợp đồng backend; server luôn kiểm tra quyền. Không suy ra quyền từ localStorage hoặc tham số URL.
-
-## Quy ước mã nguồn
-
-Tên class, type, biến, method và file dùng tiếng Anh. Nội dung giao diện cần cả `vi`/`en`. Dùng `String` IDs của API dưới dạng TypeScript `string`; không chuyển ID sang số thực. Enum/DTO phải bám OpenAPI đã duyệt, không suy ra hợp đồng từ mock.
+IDs dùng JavaScript string. DTO demo chưa phải hợp đồng API. Nội dung giao diện vi/en, định danh mã nguồn tiếng Anh, tài liệu tiếng Việt.

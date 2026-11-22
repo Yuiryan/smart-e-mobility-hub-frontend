@@ -1,12 +1,12 @@
 # Smart E-Mobility Hub — Frontend
 
-Bộ khung frontend web cho Submission 4, nhóm A01–07. Hai khu vực: sinh viên và đơn vị vận hành; kết nối chung backend Spring Boot theo kiến trúc Submission 3.
+Frontend web Submission 4 dùng **HTML, CSS và JavaScript thuần (ES modules)**. Không sử dụng React, JSX hoặc TypeScript. Vite chỉ chạy máy chủ phát triển và đóng gói mã nguồn; không phải framework giao diện.
 
-[Figma của nhóm](https://www.figma.com/design/exswez5Rtk8mrmEgxqbNBS/Final?node-id=0-1) · [Kiến trúc](docs/ARCHITECTURE.md) · [Danh sách UC và phân công](docs/FEATURES.md) · [Hướng dẫn Figma](docs/DESIGN.md) · [Tích hợp API](docs/API.md) · [Làm việc nhóm](CONTRIBUTING.md)
+[Figma](https://www.figma.com/design/exswez5Rtk8mrmEgxqbNBS/Final?node-id=0-1) · [Backend](https://github.com/PhuscCea07/Smart-E-Mobility-Hub) · [Phân công](docs/FEATURES.md) · [Kiến trúc](docs/ARCHITECTURE.md) · [API](docs/API.md)
 
 ## Chạy trên Windows
 
-Cài Node.js 24 LTS và Git. Dùng PowerShell hoặc terminal của VS Code:
+Cài Node.js 24 và Git, sau đó mở PowerShell:
 
 ```powershell
 git clone https://github.com/Yuiryan/smart-e-mobility-hub-frontend.git
@@ -16,74 +16,62 @@ Copy-Item .env.example .env.local
 npm.cmd run dev
 ```
 
-Mở http://localhost:5173. Repo công khai: mọi người có thể clone; thành viên cần được cấp quyền cộng tác để push trực tiếp. Nếu đã có thư mục repo trên máy, chỉ cần mở terminal tại thư mục đó và bắt đầu từ `npm.cmd ci`.
+Mở http://localhost:5173. Không mở `index.html` bằng cách nhấp đúp: ES modules và thư viện QR cần máy chủ phát triển hoặc bản build.
 
-Dùng `npm.cmd` để tránh lỗi PowerShell chặn script `npm.ps1`. Node 24 thống nhất với CI. `package-lock.json` được commit để các máy cài cùng dependency.
+## Phần đã triển khai
 
-## Hiện đã có gì?
+- UC00: đăng nhập hai vai trò, đăng ký sinh viên, khôi phục/đổi mật khẩu, đăng xuất và chặn trang theo vai trò trong demo.
+- UC01–02: tìm Hub/xe, sơ đồ minh họa, yêu cầu vị trí khi bấm nút, xem pin/trạng thái và dữ liệu cũ.
+- UC03–04: đặt/hủy xe, tạo QR, thời hạn giữ xe, tìm và xác nhận chỗ đỗ, kiểm tra trùng thời gian.
+- UC05–06: nhập mã, camera hoặc ảnh QR; nhận/trả xe với pending, thành công, thất bại và timeout mô phỏng. Chỉ thay đổi chuyến đi sau ACK.
+- UC07: đăng ký sạc xe cá nhân mẫu, mức pin mục tiêu, thời gian ước tính, kiểm tra thời lượng và trùng cổng.
+- UC15: Việt/Anh, sáng/tối; chỉ lưu tùy chọn và thời gian form không nhạy cảm trong 15 phút.
+- Danh sách lượt đặt, lịch sử và thông báo; bố cục responsive, kiểm tra form, hộp xác nhận và thông báo lỗi.
+- UC08–UC14 giữ route riêng cho thành viên 2, chưa triển khai nghiệp vụ vận hành.
 
-- React + TypeScript + Vite, React Router, Lucide icons, CSS variables; chưa thêm UI framework để tránh áp đặt style khác Figma.
-- Điều hướng riêng sinh viên / vận hành, route cho UC00–UC15 và trang 404.
-- Starter giao diện responsive theo hướng teal, light/dark đã quan sát trong Figma; **chưa phải bản triển khai pixel-perfect**.
-- Tiếng Việt / English cho nội dung starter, sáng/tối lưu trong trình duyệt.
-- Trang Hub mẫu có loading, search, empty, error và retry.
-- API client có timeout, hủy request và lỗi HTTP; mock tách riêng. Chỉ `/hubs` có ví dụ tích hợp, hợp đồng vẫn là đề xuất.
-- Lint (Oxlint), formatter (Prettier), TypeScript, Vitest, GitHub Actions chạy trên Windows.
-- PR template, issue templates và hướng dẫn nghiệm thu.
+Đây là **frontend chạy với dữ liệu mô phỏng**. Tải lại trang đặt lại toàn bộ tài khoản demo, lượt đặt, chuyến đi và lệnh. Không dùng demo làm hệ thống thật. Bản đồ là minh họa, tọa độ và công thức thời gian sạc là dữ liệu mẫu. Giao diện bám hướng thiết kế Figma, chưa cam kết khớp từng pixel.
 
-**Chưa có:** xác thực thật, phân quyền thật, các giao dịch đặt/nhận/trả xe, QR/camera/GPS, bản đồ, nghiệp vụ vận hành, API backend đã chốt. Ngoài trang Hub mẫu và tùy chọn hiển thị, các trang UC là scaffold có thông báo rõ. Không dùng starter làm hệ thống production.
+## Tài khoản demo
 
-## Lệnh làm việc
+| Vai trò   | Email               | Mật khẩu |
+| --------- | ------------------- | -------- |
+| Sinh viên | student@demo.local  | Demo123! |
+| Vận hành  | operator@demo.local | Demo123! |
 
-| Lệnh                     | Công dụng                                     |
-| ------------------------ | --------------------------------------------- |
-| `npm.cmd run dev`        | Chạy dev server tại cổng 5173                 |
-| `npm.cmd run format`     | Định dạng mã nguồn                            |
-| `npm.cmd run lint`       | Kiểm tra lỗi lint                             |
-| `npm.cmd run typecheck`  | Kiểm tra TypeScript                           |
-| `npm.cmd test`           | Chạy kiểm thử                                 |
-| `npm.cmd run test:watch` | Chạy kiểm thử khi sửa file                    |
-| `npm.cmd run build`      | Tạo thư mục `dist/`                           |
-| `npm.cmd run preview`    | Xem bản build trên máy                        |
-| `npm.cmd run check`      | Format check + lint + tests + build, giống CI |
+Mã khôi phục demo: `123456`, hiệu lực 5 phút sau khi yêu cầu, chỉ dùng một lần. Không có email thật được gửi. Không nhập mật khẩu thật. Mật khẩu và phiên chỉ nằm trong bộ nhớ, không lưu localStorage. Demo có một xe cá nhân mẫu dùng chung để trình diễn sạc; quyền sở hữu thật chờ backend.
+
+Luồng nhanh: đăng nhập sinh viên → chọn E-024 → đặt xe → nhận xe → điền mã demo → xác nhận mở khóa → chờ ACK → trả xe → chọn chỗ → xác nhận khóa.
+
+## Lệnh kiểm tra
+
+```powershell
+npm.cmd run format
+npm.cmd run check
+npm.cmd run build
+npm.cmd run preview
+```
+
+`check` gồm Prettier, Oxlint, Vitest và build. CI chạy trên Windows. `dist/` là kết quả build, không commit. Camera/GPS cần quyền trình duyệt và HTTPS hoặc localhost.
 
 ## Cấu trúc
 
 ```text
-src/
-  App.tsx                    # Router, layout student/operator và màn hình scaffold
-  features/catalog.ts        # 16 UC, route, tên Việt/Anh, người phụ trách
-  features/hubs/             # Ví dụ module có dữ liệu và UI
-  shared/api/                # HTTP client dùng chung
-  shared/preferences.ts      # Ngôn ngữ và theme, không lưu thông tin đăng nhập
-  styles/tokens.css          # Design tokens tạm; cần chốt với Figma Inspect
-  test/                      # Thiết lập test
-docs/                        # Kiến trúc, API, Figma, backlog, triển khai
-.github/                     # CI và mẫu issue/PR
+index.html                  Điểm vào HTML
+src/main.js                 Điều hướng hash, gắn sự kiện, vòng đời trang
+src/features/account.js     UC00
+src/features/student.js     UC01–UC07
+src/features/catalog.js     Danh mục UC00–UC15 và phân công
+src/domain/service.js       Ranh giới adapter dữ liệu
+src/mocks/engine.js          Nghiệp vụ demo trong bộ nhớ
+src/shared/                 HTML helpers, vi/en, camera QR, HTTP client
+src/index.css               CSS bố cục và thành phần
+src/styles/tokens.css       Màu light/dark
 ```
 
-Khi triển khai UC, tạo `src/features/<feature>/` với page, API adapter, kiểu dữ liệu và test liên quan; thay route scaffold trong `App.tsx`. Không gom toàn bộ nghiệp vụ vào `App.tsx`.
+URL dùng `#/student/hubs`, nên bản build không cần rewrite route phía server. QR dùng `qrcode` và `@zxing/browser`; các thư viện này không phải framework UI.
 
-## Kết nối backend
+## Backend và phần còn lại
 
-Đổi `VITE_DATA_SOURCE=api` trong `.env.local`; backend chạy ở `http://localhost:8080`, dev proxy chuyển `/api` sang backend. **Phải thống nhất DTO và endpoint với backend trước**, xem [API.md](docs/API.md). Khởi động lại dev server sau khi đổi `.env.local`.
+Backend tại commit `8a5aaad` được kiểm tra ở `main` và `m1_student` mới có domain/store, chưa có controller/API nghiệp vụ. `VITE_DATA_SOURCE=api` hiện báo rõ chưa tích hợp, không giả vờ gọi thành công endpoint chưa tồn tại. Xem [hợp đồng cần thống nhất](docs/API.md).
 
-Không đưa mật khẩu, token, API secret vào `VITE_*`: các giá trị này được đóng gói công khai vào JavaScript. Frontend không đọc/ghi `data.json` và không gọi IoT Simulator trực tiếp.
-
-## Phân công hai thành viên
-
-- **Bạn (~60–65%):** nền tảng chung, UC00–UC07, UC15, tích hợp và chuẩn bị bản demo tổng.
-- **Thành viên 2 (~35–40%):** layout vận hành và UC08–UC14, bao gồm API adapter và kiểm thử các feature này.
-- Xem phạm vi, thứ tự và quy tắc bàn giao tại [bảng phân công](docs/FEATURES.md). Tỷ lệ là ước lượng công việc frontend, không phải tỷ lệ đóng góp đã hoàn thành.
-
-## Thứ tự bắt đầu
-
-1. Chốt frame Figma cụ thể, font, màu, spacing và asset; đọc `docs/DESIGN.md`.
-2. Thống nhất OpenAPI và cơ chế session/CSRF với backend.
-3. Làm component chung và UC00; sau đó từng thành viên triển khai nhóm UC ở `docs/FEATURES.md`.
-4. Kiểm tra luồng nghiệp vụ, lỗi, Việt/Anh, sáng/tối và viewport mục tiêu.
-5. Mở PR, chạy CI và review trước khi merge.
-
-Repo chưa tự động deploy và chưa mời collaborator. Chủ repo quản lý quyền truy cập; xem `CONTRIBUTING.md`.
-
-Cách khởi tạo dựa trên [tài liệu Vite chính thức](https://vite.dev/guide/). Phiên bản thực tế nằm trong `package.json` và lockfile.
+Phân công giữ nguyên: bạn khoảng 60–65% (nền tảng + UC00–07/15); thành viên 2 khoảng 35–40% (UC08–14). Tích hợp API và kiểm thử thiết bị thật thực hiện khi backend sẵn sàng. Repo chưa được deploy và chưa mời thêm cộng tác viên.
