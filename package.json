@@ -12,7 +12,9 @@
     "test:watch": "vitest",
     "format": "prettier --write .",
     "format:check": "prettier --check .",
-    "check": "npm run format:check && npm run lint && npm run test && npm run build"
+    "check": "npm run format:check && npm run lint && npm run test && npm run build",
+    "dev:api": "vite --mode api",
+    "build:api": "vite build --mode api"
   },
   "dependencies": {
     "@zxing/browser": "^0.2.1",

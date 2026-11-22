@@ -72,6 +72,8 @@ URL dùng `#/student/hubs`, nên bản build không cần rewrite route phía se
 
 ## Backend và phần còn lại
 
-Backend tại commit `8a5aaad` được kiểm tra ở `main` và `m1_student` mới có domain/store, chưa có controller/API nghiệp vụ. `VITE_DATA_SOURCE=api` hiện báo rõ chưa tích hợp, không giả vờ gọi thành công endpoint chưa tồn tại. Xem [hợp đồng cần thống nhất](docs/API.md).
+Đã kết nối API thật **UC01** trên nhánh backend `m1_student`, commit `58c5985`: tìm Hub theo tọa độ/bán kính, hiển thị danh sách xe và chất lượng dữ liệu do backend trả về. Nhánh backend `main` chưa có UC01. Các API khác trong tài liệu backend vẫn là dự thảo, chưa hiện thực.
 
-Phân công giữ nguyên: bạn khoảng 60–65% (nền tảng + UC00–07/15); thành viên 2 khoảng 35–40% (UC08–14). Tích hợp API và kiểm thử thiết bị thật thực hiện khi backend sẵn sàng. Repo chưa được deploy và chưa mời thêm cộng tác viên.
+Chạy backend rồi dùng `npm.cmd run dev:api` để mở chế độ API; `npm.cmd run build:api` tạo bản build API. Chế độ này không dùng tài khoản hoặc giao dịch demo. [Hướng dẫn chạy hai repo và trạng thái tích hợp](docs/API.md).
+
+Phân công giữ nguyên: bạn khoảng 60–65% (nền tảng + UC00–07/15); thành viên 2 khoảng 35–40% (UC08–14). Các API còn lại và kiểm thử thiết bị thật thực hiện khi backend sẵn sàng. Repo chưa được deploy và chưa mời thêm cộng tác viên.

@@ -1,3 +1,5 @@
+import { mountLiveSearch } from './features/live-search.js';
+let disposeLive;
 import './index.css';
 import { engine, call, snapshot, demoMode } from './domain/service.js';
 import { validWindow } from './mocks/engine.js';
@@ -85,6 +87,12 @@ function settings() {
   );
 }
 function render() {
+  disposeLive?.();
+  disposeLive = null;
+  if (!demoMode) {
+    disposeLive = mountLiveSearch(root, location.hash.slice(1) || '/');
+    return;
+  }
   stopScanner();
   version++;
   parkingWindow = null;
@@ -212,6 +220,7 @@ async function action(fn) {
   }
 }
 root.addEventListener('submit', (event) => {
+  if (!demoMode) return;
   event.preventDefault();
   const form = event.target,
     f = new FormData(form),
@@ -313,6 +322,7 @@ root.addEventListener('submit', (event) => {
   });
 });
 root.addEventListener('click', (event) => {
+  if (!demoMode) return;
   const b = event.target.closest('button');
   if (!b) return;
   if (b.dataset.code) {
@@ -415,6 +425,7 @@ root.addEventListener('click', (event) => {
   });
 });
 root.addEventListener('change', async (event) => {
+  if (!demoMode) return;
   const el = event.target;
   if (el.dataset.pref) {
     saveDraft();
@@ -453,6 +464,7 @@ root.addEventListener('change', async (event) => {
   }
 });
 root.addEventListener('input', (event) => {
+  if (!demoMode) return;
   const el = event.target;
   if (el.name === 'target') updateEstimate();
   if (el.id === 'hub-search') {
