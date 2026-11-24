@@ -41,3 +41,11 @@
 ## Bản triển khai JavaScript thuần
 
 Đã tham chiếu frame Home vi/light `276:4459` và nhóm Charging/preferences en/light `114:10172` trong Figma Final. Dùng teal, nền cyan nhẹ, thẻ bo góc, điều hướng dưới, vi/en và light/dark. Màu/font/spacing là xấp xỉ, chưa có giá trị Inspect chính thức; sơ đồ Hub và biểu tượng xe là minh họa, không phải asset được trích từ thiết kế.
+
+## Đợt đối chiếu component ngày 24/11/2026
+
+Nguồn bổ sung: HTML/CSS welcome sáng/tối, CSS đăng nhập và ba ảnh nhóm màn hình do chủ thiết kế cung cấp. Đã áp dụng Be Vietnam Pro (font tự lưu trữ, giấy phép OFL kèm theo), logo PNG gốc từ HTML xuất Figma, nền #f5f8f9 / #111d22, màu chính #007f89 / #3ed4de, khung mobile 390px, nút cao 52px bo góc 16px, input cao 50px bo góc 14px và khoảng lề 24px.
+
+`src/styles/figma.css` chứa các quy tắc đối chiếu mới. `src/shared/design.js` chứa thành phần tiêu đề, icon nét và thẻ thành công. Icon nét và bản đồ minh họa được dựng bằng SVG, chưa phải toàn bộ asset gốc Figma. Các màn ngoài ảnh mẫu sử dụng cùng hệ thống thành phần, cần tiếp tục so sánh với frame gốc trước khi xác nhận khớp từng pixel.
+
+Thanh giờ/Wi-Fi trong khung mobile là trang trí theo thiết kế, không đọc trạng thái thiết bị. Điều khiển demo đặt ngoài khung giao diện. Chưa thêm kết nối API trong đợt này.

@@ -1,17 +1,166 @@
-import { e, t, title, input, link } from '../shared/ui.js';
-export function accountPage(data, mode = 'login') {
+import { e, t, input, link } from '../shared/ui.js';
+import { mobileHeading, successCard } from '../shared/design.js';
+export function accountPage(data, mode = 'login', flow = {}) {
   if (data.user && mode !== 'password')
     return (
-      title(t('Tài khoản của tôi', 'My account')) +
-      `<section class="panel profile"><div class="avatar">${e(data.user.name.slice(0, 1))}</div><h2>${e(data.user.name)}</h2><p>${e(data.user.email)}</p><p>${e(data.user.role)}</p></section><div class="link-list">${link('/settings', t('Ngôn ngữ & giao diện', 'Language & appearance'))}${link('/account/password', t('Đổi mật khẩu', 'Change password'))}<button data-action="logout">${t('Đăng xuất', 'Sign out')}</button></div>`
+      mobileHeading(t('Tài khoản', 'Account')) +
+      `<section class="panel profile"><div class="avatar">${e((data.user.name || data.user.email).slice(0, 1))}</div><h2>${e(data.user.name)}</h2><p>${e(data.user.email)}</p><p>${data.user.role === 'OPERATOR' ? t('Đơn vị vận hành', 'Operator') : t('Sinh viên', 'Student')}</p></section><div class="link-list">${link('/settings', t('Ngôn ngữ & giao diện', 'Language & appearance'))}${link('/account/password', t('Đổi mật khẩu', 'Change password'))}<button data-action="logout">${t('Đăng xuất', 'Sign out')}</button></div>`
+    );
+  if (mode === 'registered' || mode === 'changed')
+    return (
+      mobileHeading(
+        mode === 'registered'
+          ? t('Đăng ký thành công', 'Registration successful')
+          : t('Đã đổi mật khẩu', 'Password changed'),
+        '/account',
+      ) +
+      successCard(
+        mode === 'registered'
+          ? t('Tài khoản đã được tạo', 'Account created')
+          : t('Cập nhật thành công', 'Updated successfully'),
+        mode === 'registered'
+          ? t(
+              'Đăng nhập để bắt đầu sử dụng Mobility Hub.',
+              'Sign in to start using Mobility Hub.',
+            )
+          : t(
+              'Bạn có thể đăng nhập bằng mật khẩu mới.',
+              'You can now sign in with your new password.',
+            ),
+      ) +
+      link(
+        '/account',
+        t('Quay lại đăng nhập', 'Back to sign in'),
+        'button primary full',
+      )
     );
   const names = {
-    login: t('Chào mừng trở lại', 'Welcome back'),
-    register: t('Tạo tài khoản', 'Create account'),
-    forgot: t('Khôi phục mật khẩu', 'Recover password'),
+    login: t('Đăng nhập', 'Sign in'),
+    student: t('Đăng nhập', 'Sign in'),
+    operator: t('Đăng nhập', 'Sign in'),
+    register: t('Đăng ký sinh viên', 'Student registration'),
+    forgot: t('Quên mật khẩu', 'Forgot password'),
+    verify: t('Xác nhận email', 'Verify email'),
     reset: t('Đặt lại mật khẩu', 'Reset password'),
     password: t('Đổi mật khẩu', 'Change password'),
   };
   if (!names[mode]) mode = 'login';
-  return `<div class="auth-wrap">${title(names[mode], t('Kết nối hành trình xanh của bạn', 'Connect your greener journey'))}<form data-form="${mode}" class="panel">${mode === 'register' ? input('name', t('Họ tên', 'Full name'), 'text', '', 'required autocomplete="name"') : ''}${mode !== 'password' ? input('email', 'Email', 'email', '', 'required autocomplete="username"') : input('current', t('Mật khẩu hiện tại', 'Current password'), 'password', '', 'required autocomplete="current-password"')}${mode === 'reset' ? input('code', t('Mã khôi phục demo', 'Demo recovery code'), 'text', '', 'required autocomplete="one-time-code"') : ''}${mode !== 'forgot' ? input('password', t('Mật khẩu', 'Password'), 'password', '', 'required minlength="8" autocomplete="' + (mode === 'login' ? 'current-password' : 'new-password') + '"') : ''}${['register', 'reset', 'password'].includes(mode) ? input('confirm', t('Nhập lại mật khẩu', 'Confirm password'), 'password', '', 'required minlength="8" autocomplete="new-password"') : ''}${mode === 'login' ? `<label>${t('Vai trò', 'Role')}<select name="role"><option value="STUDENT">${t('Sinh viên', 'Student')}</option><option value="OPERATOR">${t('Vận hành', 'Operator')}</option></select></label>` : ''}<button class="primary full">${e(names[mode])}</button></form><div class="auth-links">${link('/account', t('Đăng nhập', 'Sign in'), 'text-link')}${link('/account/register', t('Đăng ký', 'Register'), 'text-link')}${link('/account/forgot', t('Quên mật khẩu', 'Forgot password'), 'text-link')}</div><aside class="demo-help"><strong>DEMO</strong><p>student@demo.local / operator@demo.local<br>Demo123!</p><p>${t('Dữ liệu chỉ ở bộ nhớ; tải lại trang sẽ đặt lại. Mã khôi phục: 123456. Không nhập mật khẩu thật.', 'Data is in memory and resets on reload. Recovery code: 123456. Do not enter a real password.')}</p></aside></div>`;
+  const login = ['login', 'student', 'operator'].includes(mode),
+    role = mode === 'operator' ? 'OPERATOR' : flow.role || 'STUDENT';
+  const field = (name, label, type, placeholder, extra = '') =>
+    input(
+      name,
+      label,
+      type,
+      '',
+      `required placeholder="${e(placeholder)}" ${extra}`,
+    );
+  let fields = '';
+  if (login)
+    fields =
+      field(
+        'email',
+        'Email',
+        'email',
+        t('Nhập email của bạn', 'Enter your email'),
+        'autocomplete="username"',
+      ) +
+      field(
+        'password',
+        t('Mật khẩu', 'Password'),
+        'password',
+        '••••••••',
+        'autocomplete="current-password"',
+      ) +
+      `<input type="hidden" name="role" value="${role}">`;
+  if (mode === 'register')
+    fields =
+      field(
+        'name',
+        t('Họ tên', 'Full name'),
+        'text',
+        t('Nhập họ tên của bạn', 'Enter your full name'),
+        'autocomplete="name"',
+      ) +
+      field(
+        'studentId',
+        t('Mã số sinh viên', 'Student ID'),
+        'text',
+        t('Nhập mã số sinh viên', 'Enter your student ID'),
+      ) +
+      field(
+        'email',
+        'Email',
+        'email',
+        t('Nhập email của bạn', 'Enter your email'),
+        'autocomplete="email"',
+      ) +
+      field(
+        'password',
+        t('Mật khẩu', 'Password'),
+        'password',
+        t('Nhập mật khẩu của bạn', 'Enter your password'),
+        'minlength="8" autocomplete="new-password"',
+      );
+  if (mode === 'forgot')
+    fields =
+      `<p class="auth-description">${t('Nhập email đã đăng ký để nhận mã xác nhận.', 'Enter your registered email to receive a verification code.')}</p>` +
+      field(
+        'email',
+        'Email',
+        'email',
+        t('Nhập email của bạn', 'Enter your email'),
+        'autocomplete="email"',
+      );
+  if (mode === 'verify')
+    fields =
+      `<p class="auth-description">${t('Nhập mã xác nhận đã gửi đến email của bạn.', 'Enter the verification code sent to your email.')}</p>` +
+      field(
+        'code',
+        t('Mã xác nhận', 'Verification code'),
+        'text',
+        t('Nhập mã xác nhận', 'Enter verification code'),
+        'autocomplete="one-time-code" inputmode="numeric"',
+      );
+  if (mode === 'reset')
+    fields = field(
+      'password',
+      t('Mật khẩu mới', 'New password'),
+      'password',
+      t('Nhập mật khẩu mới', 'Enter your new password'),
+      'minlength="8" autocomplete="new-password"',
+    );
+  if (mode === 'password')
+    fields =
+      field(
+        'current',
+        t('Mật khẩu hiện tại', 'Current password'),
+        'password',
+        '••••••••',
+        'autocomplete="current-password"',
+      ) +
+      field(
+        'password',
+        t('Mật khẩu mới', 'New password'),
+        'password',
+        '••••••••',
+        'minlength="8" autocomplete="new-password"',
+      ) +
+      field(
+        'confirm',
+        t('Nhập lại mật khẩu', 'Confirm password'),
+        'password',
+        '••••••••',
+        'minlength="8" autocomplete="new-password"',
+      );
+  const action = login
+    ? names[mode]
+    : mode === 'register'
+      ? t('Tạo tài khoản', 'Create account')
+      : mode === 'forgot'
+        ? t('Gửi mã xác nhận', 'Send verification code')
+        : mode === 'verify'
+          ? t('Xác nhận mã', 'Verify code')
+          : t('Lưu mật khẩu mới', 'Save new password');
+  return `<div class="auth-wrap">${mobileHeading(names[mode], login ? '/' : '/account')}<div id="auth-error" role="alert" hidden></div>${login ? '<h2 class="auth-brand">Mobility Hub</h2>' : ''}<form data-form="${login ? 'login' : mode}" class="auth-form">${fields}<button class="primary full">${e(action)}</button></form><div class="auth-actions">${login ? link('/account/forgot', t('Quên mật khẩu', 'Forgot password'), 'button secondary full') + (role === 'STUDENT' ? link('/account/register', t('Đăng ký tài khoản', 'Create a student account'), 'button secondary full') : '') : mode === 'register' ? link('/account', t('Đã có tài khoản? Đăng nhập', 'Already registered? Sign in'), 'button secondary full') : ''}</div></div>`;
 }

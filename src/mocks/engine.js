@@ -209,7 +209,7 @@ export class DemoEngine {
     this.data.user = user;
     this.lastActivity = this.now();
   }
-  register(name, email, password) {
+  register(name, email, password, studentId = '') {
     email = email.trim().toLowerCase();
     if (
       !name.trim() ||
@@ -222,6 +222,7 @@ export class DemoEngine {
     this.accounts.push({
       id: this.id('U'),
       name: name.trim(),
+      studentId,
       email,
       password,
       role: 'STUDENT',
@@ -240,6 +241,13 @@ export class DemoEngine {
     a.password = password;
     this.resets.delete(email);
     this.data.user = null;
+  }
+  verifyReset(email, code) {
+    if (
+      code !== DEMO_RESET_CODE ||
+      (this.resets.get(email.trim().toLowerCase()) ?? 0) <= this.now()
+    )
+      return fail('INVALID_CODE');
   }
   changePassword(current, next) {
     if (!this.data.user) return fail('UNAUTHORIZED');
@@ -292,7 +300,20 @@ export class DemoEngine {
       return fail('ACTIVE_BOOKING');
     const v = this.data.vehicles.find((v) => v.id === id);
     if (!v || v.personal) return fail('NOT_FOUND');
-    if (v.status !== 'AVAILABLE' || v.battery < 20) return fail('UNAVAILABLE');
+    if (
+      v.status !== 'AVAILABLE' ||
+      v.battery < 20 ||
+      v.fault ||
+      v.operatorPending ||
+      this.data.bookings.some(
+        (b) =>
+          b.vehicleId === id &&
+          b.kind === 'CHARGING' &&
+          b.status === 'ACTIVE' &&
+          overlaps(b, w),
+      )
+    )
+      return fail('UNAVAILABLE');
     if (this.now() - v.observedAt > 120000) return fail('STALE');
     this.booking('VEHICLE', id, v.hubId, w);
     v.status = 'RESERVED';
@@ -301,7 +322,8 @@ export class DemoEngine {
     this.student();
     const s = this.data.spaces.find((s) => s.id === id);
     if (!s) return fail('NOT_FOUND');
-    if (s.occupied) return fail('UNAVAILABLE');
+    if (s.occupied || s.dispatchId || s.operatorPending || s.fault)
+      return fail('UNAVAILABLE');
     if (
       this.data.commands.some(
         (c) => c.spaceId === id && ['PENDING', 'TIMEOUT'].includes(c.state),
@@ -316,6 +338,7 @@ export class DemoEngine {
     const v = this.data.vehicles.find((v) => v.id === vehicleId && v.personal);
     const h = this.data.hubs.find((h) => h.id === hubId);
     if (!v || !h) return fail('NOT_FOUND');
+    if (v.fault || v.operatorPending) return fail('UNAVAILABLE');
     if (!Number.isFinite(target) || target <= v.battery || target > 100)
       return fail('INVALID_TARGET');
     if (
@@ -337,6 +360,14 @@ export class DemoEngine {
       (_, i) => `${hubId}-C${i + 1}`,
     ).find(
       (id) =>
+        (!this.data.ports ||
+          this.data.ports.some(
+            (p) =>
+              p.id === id &&
+              p.status === 'AVAILABLE' &&
+              !p.fault &&
+              !p.operatorPending,
+          )) &&
         !this.data.bookings.some(
           (b) => b.resourceId === id && b.status === 'ACTIVE' && overlaps(b, w),
         ),
@@ -412,7 +443,15 @@ export class DemoEngine {
       return fail('PENDING_COMMAND');
     const s = this.data.spaces.find((s) => s.id === spaceId);
     const v = this.data.vehicles.find((v) => v.id === r.vehicleId);
-    if (!s || s.occupied || s.type !== v.type) return fail('UNAVAILABLE');
+    if (
+      !s ||
+      s.occupied ||
+      s.dispatchId ||
+      s.operatorPending ||
+      s.fault ||
+      s.type !== v.type
+    )
+      return fail('UNAVAILABLE');
     if (
       this.data.bookings.some(
         (b) =>

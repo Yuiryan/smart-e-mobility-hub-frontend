@@ -27,7 +27,10 @@ Mở http://localhost:5173. Không mở `index.html` bằng cách nhấp đúp: 
 - UC07: đăng ký sạc xe cá nhân mẫu, mức pin mục tiêu, thời gian ước tính, kiểm tra thời lượng và trùng cổng.
 - UC15: Việt/Anh, sáng/tối; chỉ lưu tùy chọn và thời gian form không nhạy cảm trong 15 phút.
 - Danh sách lượt đặt, lịch sử và thông báo; bố cục responsive, kiểm tra form, hộp xác nhận và thông báo lỗi.
-- UC08–UC14 giữ route riêng cho thành viên 2, chưa triển khai nghiệp vụ vận hành.
+- UC08–UC14: tổng quan, can thiệp tài nguyên, cảnh báo quá tải, điều phối xe, xử lý sự cố, lịch sạc và mô phỏng; các thao tác sử dụng dữ liệu demo trong bộ nhớ.
+- UI: font Be Vietnam Pro tự lưu trữ, logo xuất từ Figma, màu sáng/tối và kích thước thành phần theo mẫu đã cung cấp; màn tài khoản tách các bước và trạng thái thành công/lỗi.
+
+**Mobile API:** chạy `npm.cmd run dev:api` để dùng adapter UC00–UC07 theo `docs/API-CONTRACT.md`. Mặc định `npm.cmd run dev` vẫn là demo. Auth backend còn lệch contract và nằm ở nhánh riêng; xem `docs/API.md` để biết phạm vi đã kiểm tra và các điểm cần backend hoàn thiện.
 
 Đây là **frontend chạy với dữ liệu mô phỏng**. Tải lại trang đặt lại toàn bộ tài khoản demo, lượt đặt, chuyến đi và lệnh. Không dùng demo làm hệ thống thật. Bản đồ là minh họa, tọa độ và công thức thời gian sạc là dữ liệu mẫu. Giao diện bám hướng thiết kế Figma, chưa cam kết khớp từng pixel.
 
@@ -72,8 +75,6 @@ URL dùng `#/student/hubs`, nên bản build không cần rewrite route phía se
 
 ## Backend và phần còn lại
 
-Đã kết nối API thật **UC01** trên nhánh backend `m1_student`, commit `58c5985`: tìm Hub theo tọa độ/bán kính, hiển thị danh sách xe và chất lượng dữ liệu do backend trả về. Nhánh backend `main` chưa có UC01. Các API khác trong tài liệu backend vẫn là dự thảo, chưa hiện thực.
+Đã thêm adapter và UI API mobile UC00–UC07 theo contract. Đối chiếu backend `m1_student` (`ca7ac1b`) và `feat/system-auth-iot` (`1f2eacd`); đã kiểm tra HTTP thật cho tìm kiếm, chi tiết xe và lỗi chưa xác thực. Chưa chạy được toàn bộ giao dịch đăng nhập vì auth/student nằm ở nhánh riêng và DTO auth còn lệch contract. Theo quyết định của bạn, frontend giữ nguyên contract, chờ backend sửa DTO.
 
-Chạy backend rồi dùng `npm.cmd run dev:api` để mở chế độ API; `npm.cmd run build:api` tạo bản build API. Chế độ này không dùng tài khoản hoặc giao dịch demo. [Hướng dẫn chạy hai repo và trạng thái tích hợp](docs/API.md).
-
-Phân công giữ nguyên: bạn khoảng 60–65% (nền tảng + UC00–07/15); thành viên 2 khoảng 35–40% (UC08–14). Các API còn lại và kiểm thử thiết bị thật thực hiện khi backend sẵn sàng. Repo chưa được deploy và chưa mời thêm cộng tác viên.
+Chạy `npm.cmd run dev:api` để dùng API; `npm.cmd run build:api` tạo bản build API. [Cách chạy và các điểm còn thiếu](docs/API.md). Toàn bộ frontend hiện do bạn phụ trách; phần vận hành đã có UI/demo, API đang ưu tiên mobile. Repo chưa được deploy.

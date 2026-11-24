@@ -1,0 +1,248 @@
+import { request, ApiError } from './client.js';
+import {
+  searchPayload,
+  validateSearchResponse,
+} from '../../features/hub-search-api.js';
+
+const required = (value, field) => {
+  if (typeof value !== 'string' || !value.trim())
+    throw new Error(`${field}: required`);
+  return value.trim();
+};
+export function rentalWindow(start, end) {
+  const from = new Date(start),
+    to = new Date(end);
+  if (!Number.isFinite(+from) || !Number.isFinite(+to) || to <= from)
+    throw new Error('Invalid rental time window');
+  return { startsAt: from.toISOString(), endsAt: to.toISOString() };
+}
+// Session, receipts and idempotency keys deliberately live only in memory.
+export class MobileApi {
+  constructor(send = request) {
+    this.send = send;
+    this.clear();
+  }
+  clear() {
+    this.session = null;
+    this.hubs = [];
+    this.reservations = [];
+    this.parking = [];
+    this.charging = [];
+    this.ride = null;
+    this.command = null;
+  }
+  get user() {
+    return this.session?.user || null;
+  }
+  async call(path, body, { auth = true, signal, key, withStatus } = {}) {
+    const headers = {};
+    if (auth) {
+      if (!this.session || Date.parse(this.session.expiresAt) <= Date.now()) {
+        this.clear();
+        throw new ApiError(401, 'Session expired. Please sign in again.');
+      }
+      headers.Authorization = `Bearer ${this.session.sessionToken}`;
+    }
+    if (key) headers['Idempotency-Key'] = key;
+    try {
+      return await this.send(path, {
+        method: body === undefined ? 'GET' : 'POST',
+        ...(body === undefined ? {} : { body: JSON.stringify(body) }),
+        headers,
+        signal,
+        withStatus,
+      });
+    } catch (error) {
+      if (error.status === 401 && auth) this.clear();
+      throw error;
+    }
+  }
+  async login(email, password) {
+    const data = await this.call(
+      '/auth/login',
+      { email, password },
+      { auth: false },
+    );
+    if (
+      !data?.sessionToken ||
+      data.tokenType !== 'Bearer' ||
+      !data.user?.accountId ||
+      !Number.isFinite(Date.parse(data.expiresAt)) ||
+      Date.parse(data.expiresAt) <= Date.now()
+    )
+      throw new Error('Invalid login response');
+    this.clear();
+    this.session = {
+      ...data,
+      user: { ...data.user, email: data.user.email || email },
+    };
+    return this.user;
+  }
+  register(studentId, email, password) {
+    return this.call(
+      '/auth/register',
+      { studentId, email, password },
+      { auth: false },
+    );
+  }
+  async logout() {
+    try {
+      await this.call('/auth/logout', {});
+    } finally {
+      this.clear();
+    }
+  }
+  async search(values, signal) {
+    const hubs = validateSearchResponse(
+      await this.call('/search/hubs', searchPayload(values), {
+        auth: false,
+        signal,
+      }),
+    );
+    if (!signal?.aborted) this.hubs = hubs;
+    return hubs;
+  }
+  async vehicle(id, signal) {
+    const data = await this.call(
+      '/vehicles/' + encodeURIComponent(id),
+      undefined,
+      { auth: false, signal },
+    );
+    if (data?.vehicleId !== id || typeof data.status !== 'string')
+      throw new Error('Invalid vehicle response');
+    return data;
+  }
+  async reserve(vehicleId, start, end) {
+    const data = await this.call('/reservations', {
+      vehicleId,
+      ...rentalWindow(start, end),
+    });
+    if (!data?.reservationId)
+      throw new Error(
+        'Invalid reservation response; check with backend before retrying',
+      );
+    this.reservations.unshift(data);
+    return data;
+  }
+  async cancel(id) {
+    await this.call(`/reservations/${encodeURIComponent(id)}/cancel`, {});
+    const receipt = this.reservations.find((r) => r.reservationId === id);
+    if (receipt) receipt.status = 'CANCELLED';
+  }
+  async reserveParking(hubId, spaceId, start, end) {
+    const data = await this.call('/parking-reservations', {
+      hubId: required(hubId, 'hubId'),
+      spaceId: required(spaceId, 'spaceId'),
+      ...rentalWindow(start, end),
+    });
+    if (!data?.parkingReservationId)
+      throw new Error('Invalid parking response');
+    this.parking.unshift(data);
+    return data;
+  }
+  async charge(vehicleId, hubId, target, start) {
+    const requestedStartAt = new Date(start).toISOString(),
+      targetBatteryPct = Number(target);
+    if (!(targetBatteryPct > 0 && targetBatteryPct <= 100))
+      throw new Error('Invalid target battery');
+    const data = await this.call('/charging-requests', {
+      vehicleId: required(vehicleId, 'vehicleId'),
+      hubId: required(hubId, 'hubId'),
+      targetBatteryPct,
+      requestedStartAt,
+    });
+    if (!data?.chargingRequestId) throw new Error('Invalid charging response');
+    this.charging.unshift(data);
+    return data;
+  }
+  async pickup(vehicleId, reservationId, pickupCode) {
+    const body = { vehicleId: required(vehicleId, 'vehicleId') };
+    if (reservationId)
+      Object.assign(body, {
+        reservationId,
+        pickupCode: required(pickupCode, 'pickupCode'),
+      });
+    return this.mutateCommand('/pickups', body, 'PICKUP');
+  }
+  async returnRide(rideId, hubId, spaceId) {
+    return this.mutateCommand(
+      `/rides/${encodeURIComponent(required(rideId, 'rideId'))}/return`,
+      {
+        hubId: required(hubId, 'hubId'),
+        spaceId: required(spaceId, 'spaceId'),
+      },
+      'RETURN',
+    );
+  }
+  async mutateCommand(path, body, kind) {
+    if (this.command && ['PENDING', 'UNKNOWN'].includes(this.command.state))
+      throw new Error(
+        'A device command is unresolved. Check its status or retry the same command.',
+      );
+    this.command = {
+      path,
+      body,
+      kind,
+      key: crypto.randomUUID(),
+      state: 'PENDING',
+    };
+    return this.sendCommand();
+  }
+  async sendCommand() {
+    const command = this.command;
+    try {
+      const { data, status } = await this.call(command.path, command.body, {
+        key: command.key,
+        withStatus: true,
+      });
+      if (status === 202) {
+        if (!data?.operationId) throw new Error('Missing operationId');
+        command.operationId = data.operationId;
+        command.state = 'PENDING';
+      } else {
+        if (!data?.rideId) throw new Error('Missing rideId');
+        this.finishCommand(command, data);
+      }
+      return command;
+    } catch (error) {
+      command.state = error.status && error.status < 500 ? 'FAILED' : 'UNKNOWN';
+      throw error;
+    }
+  }
+  finishCommand(command, data) {
+    command.state = 'SUCCEEDED';
+    command.result = data;
+    this.ride = {
+      ...this.ride,
+      ...data,
+      status: command.kind === 'RETURN' ? 'COMPLETED' : 'ACTIVE',
+    };
+    if (command.kind === 'PICKUP') {
+      const r = this.reservations.find(
+        (r) => r.reservationId === command.body.reservationId,
+      );
+      if (r) r.status = 'USED';
+    }
+  }
+  async poll(signal) {
+    const c = this.command;
+    if (!c?.operationId || c.state !== 'PENDING') return c;
+    const data = await this.call(
+      '/operations/' + encodeURIComponent(c.operationId),
+      undefined,
+      { signal },
+    );
+    if (signal?.aborted) return c;
+    if (
+      data.operationId !== c.operationId ||
+      !['PENDING', 'SUCCEEDED', 'FAILED'].includes(data.status)
+    )
+      throw new Error('Invalid operation response');
+    if (data.status === 'SUCCEEDED') {
+      if (!data.result?.rideId) throw new Error('Missing confirmed ride');
+      this.finishCommand(c, data.result);
+    } else c.state = data.status;
+    return c;
+  }
+}
+export const mobileApi = new MobileApi();

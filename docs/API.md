@@ -1,54 +1,55 @@
-# Kết nối backend thật — UC01
+# Kết nối API mobile — UC00–UC07
 
-Đã đối chiếu [backend](https://github.com/PhuscCea07/Smart-E-Mobility-Hub) nhánh **m1_student**, commit **58c5985**. `main` vẫn ở `8a5aaad`, chưa chứa controller UC01. `docs/03-api-contract.md` của backend là **draft**: chỉ API UC01 được hiện thực; các endpoint khác là đề xuất.
+Frontend dùng `docs/API-CONTRACT.md` làm hợp đồng. Theo lựa chọn của chủ dự án ngày 24/11/2026, không tự thêm `role` vào login hoặc `fullName` vào register để chiều theo DTO backend đang lệch hợp đồng.
 
-## Chạy hai repo trên Windows
-
-Terminal backend (JDK 21 trở lên, Maven wrapper):
-
-```powershell
-git clone --branch m1_student https://github.com/PhuscCea07/Smart-E-Mobility-Hub.git
-cd Smart-E-Mobility-Hub
-.\mvnw.cmd spring-boot:run
-```
-
-Terminal frontend:
+## Chạy
 
 ```powershell
 npm.cmd ci
 npm.cmd run dev:api
 ```
 
-Mở http://localhost:5173. Nếu cổng đang được dùng bởi bản demo, dừng terminal demo hoặc chạy `npm.cmd run dev:api -- --port 5174`. Vite proxy `/api` sang `http://localhost:8080` (đổi bằng `API_PROXY_TARGET`). Không cần thay cấu hình CORS backend khi dùng proxy này. `npm.cmd run build:api` đóng gói bản API. Bản triển khai cần reverse proxy `/api` hoặc cấu hình API origin/CORS phù hợp.
+Mở http://localhost:5173. Nếu cổng đã được dùng, thêm `-- --port 5176`. `npm.cmd run dev` vẫn là demo; `npm.cmd run build:api` build bản API. Vite proxy `/api` tới `http://localhost:8080`, thay bằng `API_PROXY_TARGET` trong `.env.local` nếu cần. Bản triển khai cần reverse proxy `/api` tương ứng.
 
-Chế độ mặc định `npm.cmd run dev` với `.env.example` là demo. `dev:api` luôn bật API dù `.env.local` đang để mock. API mode không đăng nhập demo, không dùng xe/chỗ đỗ giả và không gửi endpoint chưa có. Các route chưa hỗ trợ hiển thị thông báo và đường về UC01.
+Không lưu token, mật khẩu, mã nhận xe hoặc tọa độ vào localStorage/sessionStorage. Token và các biên nhận chỉ nằm trong bộ nhớ; reload cần đăng nhập lại. Không fallback về mock khi server lỗi.
 
-## Endpoint đã kết nối
+## API đã gắn với UI
 
-`POST /api/search/hubs`, public theo controller hiện tại:
+| Luồng          | Request                                                    |
+| -------------- | ---------------------------------------------------------- |
+| Đăng ký        | POST /api/auth/register — studentId, email, password       |
+| Đăng nhập      | POST /api/auth/login — email, password                     |
+| Đăng xuất      | POST /api/auth/logout                                      |
+| Tìm Hub/xe     | POST /api/search/hubs                                      |
+| Chi tiết xe    | GET /api/vehicles/{vehicleId}                              |
+| Đặt/hủy xe     | POST /api/reservations; POST /api/reservations/{id}/cancel |
+| Đặt chỗ đỗ     | POST /api/parking-reservations                             |
+| Nhận xe        | POST /api/pickups                                          |
+| Theo dõi lệnh  | GET /api/operations/{operationId}                          |
+| Trả xe         | POST /api/rides/{rideId}/return                            |
+| Sạc xe cá nhân | POST /api/charging-requests                                |
 
-```json
-{
-  "origin": { "latitude": 10.77, "longitude": 106.66 },
-  "destination": null,
-  "radiusKm": 3
-}
-```
+Tìm kiếm, danh sách xe và chi tiết xe là public. Có thể mở `/#/student/search` để kiểm tra khi auth chưa chạy. Người dùng phải chọn GPS hoặc nhập tọa độ; frontend không tự gán vị trí. Đặt xe mở chi tiết xe từ kết quả backend đã tải. Nếu chưa có kết quả, mở danh sách xe với liên kết tìm kiếm. Chi tiết được tải lại từ server trước khi đặt.
 
-UI cho chọn điểm đi hoặc điểm đến; chỉ gửi một điểm, điểm còn lại null. Controller sử dụng origin nếu cả hai được gửi. Bán kính >0, mặc định giới hạn 50 km. GPS chỉ điền form sau thao tác người dùng; tọa độ gửi tới backend khi bấm tìm kiếm, không lưu storage.
+Bearer token gửi cho các API cần quyền. Mốc giờ chuyển thành ISO-8601 UTC. Lỗi giữ nguyên HTTP status, code, details và requestId. Xe có dữ liệu thiếu hoặc reason cảnh báo không được đặt ở UI.
 
-Response `{ hubs: [...] }` được giữ nguyên thứ tự server. Mỗi Hub hiển thị `hubId`, `hubName`, `distanceKm`, `availableVehicleCount`, `telemetryStatus`; mỗi xe hiển thị `vehicleId`, `batteryPct`, `status`. Không suy ra vị trí Hub/type/observedAt vì DTO chưa cung cấp. FRESH/STALE/MISSING là chất lượng dữ liệu, không phải trạng thái xe.
+Nhận/trả xe sinh UUID Idempotency-Key cho mỗi thao tác. 202 chỉ hiển thị đang chờ, không tạo chuyến đi thành công. Poll mỗi 2 giây, tối đa 30 lần trong một lượt mở màn; người dùng có thể kiểm tra tiếp thủ công. Khi lỗi mạng/503, giữ key và payload cũ để đối soát bằng đúng yêu cầu đó. Không tự tạo lệnh khác khi kết quả chưa rõ. Kết quả SUCCEEDED mới chuyển trạng thái chuyến đi.
 
-Backend quyết định xe đủ điều kiện: xe dùng chung, AVAILABLE, pin >=20%, telemetry còn mới. **Cấu hình trong nhánh hiện tại là `app.search.freshness-limit=PT10M`**, trong khi giá trị mặc định ở service là 15 giây. Frontend không áp lại ngưỡng riêng. Giới hạn bán kính cũng có thể được cấu hình phía backend; lỗi 400 sẽ yêu cầu kiểm tra đầu vào.
+## Điểm cần backend hoàn thiện
 
-## Kết quả chạy thử
+Đối chiếu repository ngày 24/11/2026:
 
-Đã khởi động Spring Boot thực tế và gọi qua Vite proxy. Tọa độ H1 trả HTTP 200, `Hub 1`, khoảng cách 0 km, `availableVehicleCount: 0`, `vehicles: []`, `telemetryStatus: STALE`. Dữ liệu mẫu có telemetry từ ngày 21/11/2026 nên đã cũ khi kiểm tra. Không sửa dữ liệu/backend để biến kết quả thành FRESH. Đã xác minh cùng kết quả trong UI trình duyệt.
+- `m1_student` commit `ca7ac1b`: có controller UC01–UC07, chưa có AccountController.
+- `feat/system-auth-iot` commit `1f2eacd`: có AccountController nhưng login yêu cầu thêm `role`, register yêu cầu thêm `fullName`. Login response thiếu email/studentId so với contract (UI có thể dùng email vừa nhập). Chưa có logout endpoint.
+- Backend cần hợp nhất auth và student flow dùng cùng kho account/session, đồng thời sửa DTO theo contract. Chạy hai server riêng biệt không tự chia sẻ token/session.
+- Chưa có API liệt kê chỗ đỗ, xe cá nhân, lịch sử lượt đặt hoặc chuyến đang chạy. UI hiện cho nhập ID tại màn đỗ/sạc/trả và hiển thị các biên nhận nhận được trong phiên; không tạo danh sách giả.
+- Quên/đổi mật khẩu, thông báo và operator API chưa được nối trong đợt mobile này.
+- Logout xóa phiên trong frontend kể cả khi endpoint server lỗi; khi backend chưa có logout, token chưa được thu hồi phía server.
 
-## Những phần chưa thể nối
+## Kiểm chứng
 
-UC00, UC02–UC14 chưa có controller tương ứng trong nhánh kiểm tra. Auth Bearer, idempotency, operation polling và các DTO trong tài liệu backend vẫn là đề xuất. Chưa gửi password/token, chưa gọi các endpoint đó.
+- Kiểm tra tự động payload, Bearer, UTC, conflict, response rỗng, 202/poll, idempotency khi retry, 401 xóa phiên, phản hồi cũ sau chuyển trang và trạng thái thiếu dữ liệu.
+- Chạy Spring Boot thực tế từ worktree riêng của `ca7ac1b`, cổng 8085; gọi qua Vite API proxy cổng 5176: tìm Hub trả 200 (Hub H1, STALE, 0 xe), GET E20 trả 200 với reason `Telemetry is stale`, ID không có trả 404, đặt xe không token trả 401.
+- Không sửa dữ liệu backend để biến xe thành khả dụng. Chưa chứng minh giao dịch đã đăng nhập thành công xuyên suốt vì DTO auth và nhánh backend chưa thống nhất.
 
-Các enum trong draft cũng ghi rõ một số chỗ lệch domain hiện tại. Cần nhóm backend chốt trước khi nối giao dịch; không âm thầm đổi enum hoặc dùng trạng thái demo làm hợp đồng thật.
-
-`src/features/hub-search-api.js` xử lý UC01; `live-search.js` hiển thị loading/empty/error và kết quả. HTTP client có timeout, AbortSignal và giữ HTTP status. Response sai định dạng báo lỗi, không rơi về mock. Khi có API tiếp theo, bổ sung adapter/test theo controller thực tế.
+Mã chính: `src/shared/api/mobile.js` (adapter/session/receipts/commands), `src/features/mobile-api.js` (mobile UI và lifecycle), `src/shared/api/client.js` (HTTP/error/timeout). `live-search.js` là renderer UC01 cũ, không còn được mount trong API mode.
