@@ -50,9 +50,7 @@ const status = (code) =>
 const button = (action, text, id = '', extra = '') =>
   `<button type="button" data-op="${action}" data-id="${e(id)}" ${extra}>${e(text)}</button>`;
 const table = (headers, rows) =>
-  rows.length
-    ? `<div class="table-scroll"><table class="op-table"><thead><tr>${headers.map((x) => `<th scope="col">${e(x)}</th>`).join('')}</tr></thead><tbody>${rows.map((row) => `<tr>${row.map((x) => `<td>${x}</td>`).join('')}</tr>`).join('')}</tbody></table>`
-    : `<p class="empty">${t('Chưa có dữ liệu phù hợp.', 'No matching data yet.')}</p>`;
+  `<div class="table-scroll"><table class="op-table"><thead><tr>${headers.map((x) => `<th scope="col">${e(x)}</th>`).join('')}</tr></thead><tbody>${rows.length ? rows.map((row) => `<tr>${row.map((x) => `<td>${x}</td>`).join('')}</tr>`).join('') : `<tr><td colspan="${headers.length}" class="empty">${t('Chưa có dữ liệu phù hợp.', 'No matching data yet.')}</td></tr>`}</tbody></table></div>`;
 const select = (name, text, options, value) =>
   `<label>${e(text)}<select name="${name}">${options.map(([id, text]) => `<option value="${e(id)}" ${id === value ? 'selected' : ''}>${e(text)}</option>`).join('')}</select></label>`;
 const hubs = (d) => d.hubs.map((h) => [h.id, h.name]);
@@ -77,299 +75,404 @@ export function operatorPage(ops, route, state = {}) {
   const d = ops.snapshot(),
     key = route.split('/')[2];
   const names = {
-    overview: ['UC08 · Tổng quan mạng lưới', 'UC08 · Network overview'],
-    interventions: [
-      'UC09 · Can thiệp tài nguyên',
-      'UC09 · Resource interventions',
-    ],
-    alerts: ['UC10 · Cảnh báo quá tải', 'UC10 · Overload alerts'],
-    dispatch: ['UC11 · Điều phối phương tiện', 'UC11 · Vehicle dispatch'],
-    incidents: ['UC12 · Quản lý sự cố', 'UC12 · Incident management'],
-    charging: ['UC13 · Lập lịch sạc', 'UC13 · Charging schedule'],
-    simulation: ['UC14 · Mô phỏng What-if', 'UC14 · What-if simulation'],
+    overview: ['Tổng quan mạng lưới', 'Network overview'],
+    resources: ['Tài nguyên Hub', 'Mobility Hub resources'],
+    interventions: ['Can thiệp vận hành', 'Operational intervention'],
+    alerts: ['Cảnh báo quá tải Hub', 'Hub overload alerts'],
+    dispatch: ['Điều phối phương tiện', 'Vehicle dispatch'],
+    incidents: ['Sự cố thiết bị', 'Device incidents'],
+    charging: ['Lập lịch sạc thông minh', 'Smart charging schedule'],
+    simulation: ['Mô phỏng kịch bản What-if', 'What-if scenario simulation'],
+  };
+  const descriptions = {
+    overview: t(
+      'Theo dõi tài nguyên tại các Mobility Hub',
+      'Monitor resources across Mobility Hubs',
+    ),
+    resources: t('Dữ liệu tài nguyên', 'Resource data'),
+    interventions: t(
+      'Chọn tài nguyên, nhập lý do và xác nhận trước khi phát lệnh.',
+      'Select a resource, enter a reason and confirm before sending a command.',
+    ),
+    alerts: t(
+      'Theo dõi mức sử dụng chỗ đỗ và điểm sạc theo ngưỡng đã cấu hình.',
+      'Monitor parking and charging utilization against configured thresholds.',
+    ),
+    dispatch: t(
+      'Chọn xe ở Hub nguồn và kiểm tra sức chứa tại Hub đích.',
+      'Select vehicles at the source Hub and check destination capacity.',
+    ),
+    incidents: t(
+      'Khóa thiết bị lỗi để bảo trì hoặc khôi phục sau khi hoàn tất sửa chữa.',
+      'Lock faulty devices for maintenance or restore them after repairs.',
+    ),
+    charging: t(
+      'Ưu tiên theo mức pin, nhu cầu dùng xe sắp tới và công suất Hub.',
+      'Prioritize battery level, upcoming usage and Hub capacity.',
+    ),
+    simulation: t(
+      'Thử nghiệm trên dữ liệu mạng lưới để đánh giá trước khi áp dụng.',
+      'Explore a network snapshot before applying changes.',
+    ),
   };
   if (!names[key]) return title('404');
-  let body = '';
+  let heading = t(...names[key]),
+    description = descriptions[key],
+    body = '';
+  const h =
+    d.metrics.find((h) => h.id === state.resourceHub) ||
+    d.metrics[1] ||
+    d.metrics[0];
+  const when = new Date(ops.now()).toLocaleTimeString();
   if (key === 'overview') {
-    const list = d.metrics.filter(
-      (h) => !state.hub || state.hub === 'all' || h.id === state.hub,
-    );
-    body = `<div class="op-toolbar">${select('overviewHub', t('Lọc Hub', 'Filter Hub'), [['all', t('Tất cả Hub', 'All Hubs')], ...hubs(d)], state.hub || 'all')}${button('refresh', t('Làm mới', 'Refresh'))}<span>${t('Ảnh chụp lúc', 'Snapshot at')} ${e(date(ops.now()))}</span></div><div class="op-metrics">${metric(d.hubs.length, t('Mobility Hub', 'Mobility Hubs'))}${metric(d.vehicles.filter((v) => ops.eligible(v)).length, t('Xe sẵn sàng', 'Ready vehicles'))}${metric(
+    description += ' · ' + t('Cập nhật ', 'Updated ') + when;
+    body = `<div class="op-metrics">${metric(d.hubs.length, t('Mobility Hub', 'Mobility Hubs'))}${metric(d.vehicles.filter((v) => ops.eligible(v)).length, t('Xe khả dụng', 'Available vehicles'))}${metric(
       d.metrics.reduce((n, h) => n + h.capacity - h.used, 0),
-      t('Chỗ đỗ còn lại', 'Free parking spaces'),
-    )}${metric(d.incidents.filter((i) => i.status === 'OPEN').length, t('Sự cố đang mở', 'Open incidents'))}</div><div class="op-hub-grid">${list
-      .map(
-        (h) =>
-          `<article class="panel op-hub"><div class="op-heading"><h2>${e(h.name)}</h2>${status(h.severity)}</div><p>${e(h.address)}</p><label>${t('Chỗ đỗ đã sử dụng / giữ', 'Occupied / held parking')} <strong>${h.used}/${h.capacity}</strong><meter min="0" max="${h.capacity}" value="${h.used}">${h.used}/${h.capacity}</meter></label><dl><dt>${t('Phương tiện', 'Vehicles')}</dt><dd>${h.vehicles}</dd><dt>${t('Cổng sạc khả dụng', 'Available ports')}</dt><dd>${h.availablePorts}/${h.ports}</dd><dt>${t('Đang sạc', 'Charging')}</dt><dd>${h.charging}</dd></dl>${h.stale ? `<p class="op-warning">${t('Có telemetry cũ. Kiểm tra từng xe trước khi điều phối.', 'Some telemetry is stale. Check vehicles before dispatch.')}</p>` : ''}<details><summary>${t('Chi tiết tài nguyên', 'Resource details')}</summary>${vehicleTable(
-            d.vehicles.filter((v) => v.hubId === h.id),
-            ops,
-          )}</details></article>`,
-      )
-      .join('')}</div>`;
+      t('Chỗ đỗ trống', 'Free parking spaces'),
+    )}${metric(
+      d.metrics.reduce((n, h) => n + h.availablePorts, 0),
+      t('Cổng sạc khả dụng', 'Available chargers'),
+    )}</div><div class="op-overview-middle"><div class="op-network-map" aria-label="${t('Sơ đồ Hub minh họa', 'Illustrative Hub map')}"><svg viewBox="0 0 550 260" aria-hidden="true"><rect width="550" height="260" fill="var(--tint)"/><path d="M80 0h390v260H80Z" fill="var(--map-block, #e7f1ee)"/><path d="M180-10l60 290M395-10 280 280M50 165 490 50M65 85l420 155" stroke="var(--surface)" stroke-width="18"/><path d="M180-10l60 290M395-10 280 280M50 165 490 50M65 85l420 155" stroke="var(--border)" stroke-width="1"/><rect x="240" y="25" width="65" height="40" rx="14" fill="#c9dfd6"/><rect x="345" y="190" width="95" height="48" rx="14" fill="#c9dfd6"/></svg>${d.hubs.map((hub, i) => `<a href="#/operator/resources" data-hub-open="${e(hub.id)}" class="op-map-pin pin-${i % 3}">⌖ ${e(hub.name)}</a>`).join('')}</div><section class="op-connection"><h2>${t('Trạng thái kết nối', 'Connection status')}</h2>${status(d.metrics.some((x) => x.stale) ? 'STALE' : 'SUCCESS')}<p>${t('Chọn Hub để xem trạng thái phương tiện, vị trí đỗ và điểm sạc.', 'Select a Hub to view vehicles, parking spaces and charging points.')}</p><a href="#/operator/resources" class="button secondary full">${t('Xem ', 'View ')}${e(h.name)}</a></section></div>${table(
+      [
+        t('Mobility Hub', 'Mobility Hub'),
+        t('Xe khả dụng', 'Available vehicles'),
+        t('Chỗ đỗ đang dùng', 'Occupied parking'),
+        t('Cổng sạc trống', 'Free chargers'),
+      ],
+      d.metrics.map((h) => [
+        `<a href="#/operator/resources" data-hub-open="${e(h.id)}">${e(h.name)}</a>`,
+        String(
+          d.vehicles.filter((v) => v.hubId === h.id && ops.eligible(v)).length,
+        ),
+        `${h.used} / ${h.capacity}`,
+        String(h.availablePorts),
+      ]),
+    )}`;
+  } else if (key === 'resources') {
+    heading = h.name;
+    description += ' · ' + when;
+    body = `<div class="op-hub-picker">${select('resourceHub', t('Mobility Hub', 'Mobility Hub'), hubs(d), h.id)}</div><div class="op-metrics">${metric(d.vehicles.filter((v) => v.hubId === h.id && ops.eligible(v)).length, t('Xe khả dụng', 'Available vehicles'))}${metric(`${h.used} / ${h.capacity}`, t('Vị trí đang dùng', 'Occupied spaces'))}${metric(`${h.availablePorts} / ${d.ports.filter((p) => p.hubId === h.id).length}`, t('Cổng sạc khả dụng', 'Available chargers'))}${metric(`${Math.round((h.used / Math.max(1, h.capacity)) * 100)}%`, t('Tỷ lệ sử dụng chỗ đỗ', 'Parking occupancy'))}</div>${vehicleTable(
+      d.vehicles.filter((v) => v.hubId === h.id),
+      ops,
+    )}<div class="op-columns">${table(
+      [
+        t('Vị trí đỗ', 'Parking space'),
+        t('Loại', 'Type'),
+        t('Trạng thái', 'Status'),
+      ],
+      d.spaces
+        .filter((s) => s.hubId === h.id)
+        .map((s) => [
+          e(s.id),
+          e(s.type),
+          status(
+            s.occupied ? 'IN_USE' : s.dispatchId ? 'RESERVED' : 'AVAILABLE',
+          ),
+        ]),
+    )}${table(
+      [
+        t('Cổng sạc', 'Charging port'),
+        t('Phương tiện', 'Vehicle'),
+        t('Trạng thái', 'Status'),
+      ],
+      d.ports
+        .filter((p) => p.hubId === h.id)
+        .map((p) => [
+          e(p.id),
+          e(
+            d.bookings.find(
+              (b) => b.resourceId === p.id && b.status === 'ACTIVE',
+            )?.vehicleId || '—',
+          ),
+          status(p.status),
+        ]),
+    )}</div><a class="button secondary op-action-width" href="#/operator/interventions">${t('Mở can thiệp vận hành', 'Open operational intervention')}</a>`;
   } else if (key === 'interventions') {
-    body = `<div class="op-columns">${panel(
-      t('Tài nguyên', 'Resources'),
-      `<label>${t('Tìm mã tài nguyên hoặc Hub', 'Search resource ID or Hub')}<input type="search" data-resource-search placeholder="E-024, metro-C1…"></label><div class="resource-list">${resourceOptions(
-        d,
-      )
-        .map(
-          ([id, text]) =>
-            `<div data-resource-row="${e(text.toLowerCase())}"><span>${e(text)}</span>${button('select-resource', t('Chọn', 'Select'), id)}</div>`,
+    const resource =
+      [...d.vehicles, ...d.ports, ...d.spaces].find(
+        (r) => r.id === state.resource,
+      ) ||
+      d.ports[0] ||
+      d.vehicles[0];
+    const session = d.bookings.find(
+      (b) => b.resourceId === resource.id && b.status === 'ACTIVE',
+    );
+    body = `<div class="op-columns op-intervention">${panel(
+      t('Tài nguyên cần can thiệp', 'Resource to intervene'),
+      select(
+        'selectedResource',
+        t('Tài nguyên cần can thiệp', 'Resource'),
+        resourceOptions(d),
+        resource.id,
+      ) +
+        `<label>${t('Vị trí hiện tại', 'Current location')}<input value="${e(hubName(d, resource.hubId))}" readonly></label><dl class="op-details"><div><dt>${t('Kết nối', 'Connection')}</dt><dd>${resource.observedAt && ops.now() - resource.observedAt > 120000 ? t('Dữ liệu cũ', 'Stale data') : t('Đã cập nhật', 'Updated')}</dd></div><div><dt>${t('Trạng thái', 'Status')}</dt><dd>${e(label(resource.status || 'AVAILABLE'))}</dd></div><div><dt>${t('Phiên sạc', 'Charging session')}</dt><dd>${e(session?.id || '—')}</dd></div><div><dt>${t('Vị trí', 'Position')}</dt><dd>${e(resource.id)}</dd></div></dl><details class="op-extra"><summary>${t('Tìm tài nguyên', 'Search resources')}</summary><input type="search" data-resource-search aria-label="${t('Tìm tài nguyên', 'Search resources')}"><div class="resource-list">${resourceOptions(
+          d,
         )
-        .join(
-          '',
-        )}</div><p data-resource-empty hidden>${t('Không tìm thấy tài nguyên.', 'No resources found.')}</p>`,
+          .map(
+            ([id, text]) =>
+              `<div data-resource-row="${e(text.toLowerCase())}"><span>${e(text)}</span>${button('select-resource', t('Chọn', 'Select'), id)}</div>`,
+          )
+          .join(
+            '',
+          )}</div><p data-resource-empty hidden>${t('Không tìm thấy tài nguyên.', 'No resources found.')}</p></details>`,
     )}${panel(
-      t('Gửi yêu cầu can thiệp', 'Request intervention'),
+      t('Lệnh can thiệp', 'Intervention command'),
       form(
         'command',
-        select(
-          'resource',
-          t('Tài nguyên được chọn', 'Selected resource'),
-          resourceOptions(d),
-          state.resource,
-        ) +
+        `<input name="resource" type="hidden" value="${e(resource.id)}">` +
           select(
             'operation',
-            t('Thao tác', 'Action'),
+            t('Hành động', 'Action'),
             ['LOCK', 'RESTORE', 'RELEASE', 'STOP_CHARGING'].map((x) => [
               x,
               label(x),
             ]),
           ) +
           reason() +
-          outcome() +
-          submit(t('Kiểm tra và gửi lệnh', 'Validate and send')),
-      ) +
-        `<p class="muted">${t('Không khóa xe đang chạy. Gửi lệnh chưa đồng nghĩa thiết bị đã thực hiện.', 'Moving vehicles cannot be locked. Dispatching a command is not device confirmation.')}</p>`,
-    )}</div>${commandTable(d)}${auditTable(d)}`;
+          `<p class="hint">${t('Các lệnh theo tài nguyên: khóa/mở khóa xe, ngắt sạc, hủy lượt giữ tài nguyên.', 'Available actions depend on the resource: lock/unlock, stop charging or release a hold.')}</p><div class="op-warning"><strong>${t('Xác nhận từ thiết bị', 'Device confirmation')}</strong><p>${t('Chỉ hiển thị thành công sau phản hồi IoT. Không khóa xe đang chạy chuyến đi.', 'Success appears only after IoT acknowledgement. Never lock a vehicle during a ride.')}</p></div>` +
+          submit(
+            t('Kiểm tra và xác nhận lệnh', 'Validate and confirm command'),
+          ) +
+          outcome(),
+      ),
+    )}</div>${d.operatorCommands.length ? commandTable(d) : ''}${auditTable(d)}`;
   } else if (key === 'alerts') {
     const rows = d.metrics.filter((h) => h.severity !== 'NORMAL' || h.stale);
-    body =
-      panel(
-        t('Ngưỡng sử dụng', 'Utilization thresholds'),
-        `<p>${t('Cảnh báo từ', 'Warning from')} ${d.thresholds.warning * 100}% · ${t('Nghiêm trọng từ', 'Critical from')} ${d.thresholds.critical * 100}%. ${t('Ngưỡng minh họa; dữ liệu cũ được đánh dấu riêng.', 'Illustrative thresholds; stale data is flagged separately.')}</p>`,
-      ) +
-      table(
-        [
-          t('Hub', 'Hub'),
-          t('Mức độ', 'Severity'),
-          t('Chỗ đỗ', 'Parking'),
-          t('Sạc', 'Charging'),
-          t('Xử lý', 'Actions'),
-        ],
-        rows.map((h) => [
-          e(h.name),
-          status(h.severity) + (h.stale ? status('STALE') : ''),
-          `${h.used}/${h.capacity}`,
-          `${h.charging}/${h.availablePorts}`,
-          `<a class="button" href="#/operator/dispatch">${t('Điều phối', 'Dispatch')}</a> <a class="button" href="#/operator/simulation">${t('Mô phỏng', 'Simulate')}</a>`,
-        ]),
-      );
+    body = `<div class="op-warning"><strong>${t('Theo dõi nguy cơ quá tải', 'Monitor overload risk')}</strong><p>${t('Ngưỡng cảnh báo', 'Warning threshold')} ${d.thresholds.warning * 100}% · ${t('Nghiêm trọng', 'Critical')} ${d.thresholds.critical * 100}%</p></div>${table(
+      [
+        t('Hub', 'Hub'),
+        t('Sử dụng chỗ đỗ', 'Parking usage'),
+        t('Sử dụng cổng sạc', 'Charging usage'),
+        t('Mức cảnh báo', 'Alert level'),
+      ],
+      rows.map((h) => [
+        e(h.name),
+        `${h.used} / ${h.capacity} · ${Math.round((h.used / Math.max(1, h.capacity)) * 100)}%`,
+        `${h.charging} / ${d.ports.filter((p) => p.hubId === h.id).length}`,
+        status(h.severity) + (h.stale ? status('STALE') : ''),
+      ]),
+    )}<div class="op-action-row"><a class="button primary" href="#/operator/dispatch">${t('Điều phối phương tiện', 'Dispatch vehicles')}</a><a class="button secondary" href="#/operator/simulation">${t('Mô phỏng phương án', 'Simulate options')}</a><a class="button secondary" href="#/operator/resources">${t('Xem chi tiết Hub', 'View Hub details')}</a></div>`;
   } else if (key === 'dispatch') {
-    const source = state.source || d.hubs[0].id;
-    body =
-      panel(
-        t('Tạo lệnh điều phối', 'Create dispatch order'),
+    const order = d.orders.find((o) => o.id === state.order);
+    if (order) {
+      heading = t('Lệnh điều phối ', 'Dispatch order ') + order.id;
+      description = t('Đã khởi tạo · ', 'Created · ') + date(order.at);
+      const target = d.metrics.find((h) => h.id === order.target);
+      body =
+        status(order.state) +
+        `<div class="op-metrics">${metric(order.vehicleIds.length, t('Phương tiện', 'Vehicles'))}${metric(hubName(d, order.source), t('Hub nguồn', 'Source Hub'))}${metric(hubName(d, order.target), t('Hub đích', 'Destination Hub'))}${metric(target.capacity - target.used, t('Chỗ đỗ còn lại', 'Remaining spaces'))}</div>${table(
+          [
+            t('Xe', 'Vehicle'),
+            t('Hub đi', 'From'),
+            t('Hub đến', 'To'),
+            t('Trạng thái', 'Status'),
+          ],
+          order.vehicleIds.map((id) => [
+            e(id),
+            e(hubName(d, order.source)),
+            e(hubName(d, order.target)),
+            e(label(order.state)),
+          ]),
+        )}<div class="op-action-row"><a class="button secondary" href="#/operator/overview">${t('Về giám sát mạng lưới', 'Back to network monitoring')}</a>${button('new-dispatch', t('Tạo lệnh khác', 'New dispatch'))}${order.state === 'IN_TRANSIT' ? button('arrival', t('Xác nhận đã đến', 'Confirm arrival'), order.id) + button('cancel-dispatch', t('Hủy lệnh', 'Cancel order'), order.id) : ''}</div>`;
+    } else {
+      const source = state.source || d.hubs[0].id,
+        target = state.target || d.hubs[1].id;
+      body =
         form(
           'dispatch',
-          `<div class="form-grid">${select('source', t('Hub nguồn', 'Source Hub'), hubs(d), source)}${select('target', t('Hub đích', 'Destination Hub'), hubs(d), state.target || d.hubs[1].id)}</div><fieldset><legend>${t('Chọn xe khả dụng', 'Select available vehicles')}</legend>${d.vehicles
-            .filter((v) => v.hubId === source && !v.personal)
-            .map(
-              (v) =>
-                `<label class="op-check"><input type="checkbox" name="vehicles" value="${e(v.id)}" ${ops.eligible(v) ? '' : 'disabled'}><span>${e(v.id)} · ${v.battery}% · ${e(label(v.status))}${ops.now() - v.observedAt > 120000 ? ' · ' + t('Dữ liệu cũ', 'Stale data') : ''}</span></label>`,
-            )
-            .join(
-              '',
-            )}</fieldset><p>${t('Chỗ đích được giữ trước khi tạo lệnh. Xe chỉ đổi Hub khi xác nhận đã đến.', 'Destination spaces are held before dispatch. Vehicles change Hub only after arrival confirmation.')}</p>${submit(t('Xem và xác nhận điều phối', 'Review and dispatch'))}`,
-        ),
-      ) +
-      panel(
-        t('Lịch sử điều phối', 'Dispatch history'),
-        table(
+          `<div class="op-dispatch-fields">${select('source', t('Hub nguồn', 'Source Hub'), hubs(d), source)}${select('target', t('Hub đích', 'Destination Hub'), hubs(d), target)}<label>${t('Số xe đã chọn', 'Selected vehicles')}<input data-dispatch-count value="0" readonly></label></div>${table(
+            [
+              t('Chọn', 'Select'),
+              t('Mã xe', 'Vehicle ID'),
+              t('Pin', 'Battery'),
+              t('Trạng thái', 'Status'),
+              t('Đủ điều kiện', 'Eligible'),
+            ],
+            d.vehicles
+              .filter((v) => v.hubId === source && !v.personal)
+              .map((v) => [
+                `<input type="checkbox" name="vehicles" value="${e(v.id)}" aria-label="${e(v.id)}" ${state.proposedVehicles?.includes(v.id) ? 'checked' : ''} ${ops.eligible(v) ? '' : 'disabled'}>`,
+                e(v.id),
+                `${v.battery}%`,
+                e(label(v.status)),
+                ops.eligible(v) ? t('Có', 'Yes') : t('Không', 'No'),
+              ]),
+          )}<div class="op-capacity" role="status" data-capacity></div>${submit(t('Xác nhận tạo lệnh điều phối', 'Confirm dispatch order'))}`,
+        ) +
+        `<details class="op-extra"><summary>${t('Lịch sử điều phối', 'Dispatch history')}</summary>${table(
           [
             t('Mã lệnh', 'Order'),
             t('Tuyến', 'Route'),
-            t('Xe', 'Vehicles'),
             t('Trạng thái', 'Status'),
-            t('Thao tác', 'Actions'),
           ],
           d.orders.map((o) => [
-            e(o.id),
+            button('view-order', o.id, o.id),
             e(hubName(d, o.source) + ' → ' + hubName(d, o.target)),
-            e(o.vehicleIds.join(', ')),
             status(o.state),
-            o.state === 'IN_TRANSIT'
-              ? button(
-                  'arrival',
-                  t('Xác nhận đã đến', 'Confirm arrival'),
-                  o.id,
-                ) +
-                button('cancel-dispatch', t('Hủy lệnh', 'Cancel order'), o.id)
-              : '—',
           ]),
-        ),
-      );
+        )}</details>`;
+    }
   } else if (key === 'incidents') {
-    body =
-      panel(
-        t('Ghi nhận sự cố', 'Report incident'),
-        form(
-          'incident',
-          `<div class="form-grid">${select('resource', t('Thiết bị', 'Device'), resourceOptions({ ...d, spaces: [] }))}${select(
-            'severity',
-            t('Mức độ', 'Severity'),
-            ['WARNING', 'CRITICAL'].map((x) => [x, label(x)]),
-          )}</div>${reason()}${submit(t('Ghi nhận', 'Record'))}`,
+    const incident =
+      d.incidents.find((i) => i.id === state.incident) ||
+      d.incidents.find((i) => i.status === 'OPEN') ||
+      d.incidents[0];
+    body = table(
+      [
+        t('Thiết bị', 'Device'),
+        t('Hub', 'Hub'),
+        t('Cảnh báo', 'Alert'),
+        t('Trạng thái', 'Status'),
+      ],
+      d.incidents.map((i) => [
+        button('view-incident', i.resourceId, i.id),
+        e(
+          hubName(
+            d,
+            [...d.vehicles, ...d.ports].find((r) => r.id === i.resourceId)
+              ?.hubId,
+          ),
         ),
-      ) +
-      panel(
-        t('Danh sách sự cố', 'Incident list'),
-        table(
-          [
-            t('Sự cố', 'Incident'),
-            t('Thiết bị', 'Device'),
-            t('Mô tả', 'Description'),
-            t('Trạng thái', 'Status'),
-            t('Xử lý', 'Actions'),
-          ],
-          d.incidents.map((i) => [
-            e(i.id) + ' ' + status(i.severity),
-            e(i.resourceId),
-            e(i.reason),
-            status(i.status),
-            ['OPEN', 'DISMISSED'].includes(i.status)
-              ? button(
-                  'maintenance',
-                  t('Đưa vào bảo trì', 'Send to maintenance'),
-                  i.id,
-                ) +
-                (i.status === 'OPEN'
-                  ? button(
-                      'dismiss',
-                      t('Bỏ qua cảnh báo', 'Dismiss alert'),
-                      i.id,
-                    )
-                  : '')
-              : i.status === 'MAINTENANCE'
-                ? button(
-                    'recover',
-                    t('Khôi phục thiết bị', 'Restore device'),
-                    i.id,
-                  )
-                : '—',
-          ]),
-        ),
-      ) +
-      `<p class="muted">${t('Bỏ qua cảnh báo không sửa lỗi thiết bị hoặc mở lại tài nguyên. Lệnh bảo trì/khôi phục cần ACK.', 'Dismissing an alert does not repair or reopen a resource. Maintenance and recovery require ACK.')}</p>${commandTable(d)}`;
-  } else if (key === 'charging') {
-    body = panel(
-      t('Tạo đề xuất lịch sạc', 'Build charging proposal'),
-      form(
-        'schedule',
-        `<div class="form-grid">${select('hub', t('Hub', 'Hub'), hubs(d), state.chargingHub || 'campus')}${input('start', t('Bắt đầu', 'Start'), 'datetime-local', localDate(ops.now() + 60000), 'required')}</div><p>${t('Mô hình mẫu: ưu tiên pin thấp, mục tiêu 80%, 1,5 phút cho mỗi 1% pin; mỗi cổng 7 kW. Không phải dự báo tối ưu thực tế.', 'Sample model: lowest battery first, 80% target, 1.5 minutes per 1% charge; 7 kW per port. This is not a production optimizer.')}</p>${submit(t('Tạo đề xuất', 'Build proposal'))}`,
-      ),
+        e(i.reason),
+        e(label(i.status)),
+      ]),
     );
+    if (incident)
+      body += `<div class="op-columns op-incident-columns">${panel(incident.resourceId + ' · ' + incident.reason, `<dl class="op-details"><div><dt>${t('Nguồn cảnh báo', 'Alert source')}</dt><dd>${t('Hệ thống demo', 'Demo system')}</dd></div><div><dt>${t('Trạng thái', 'Status')}</dt><dd>${e(label(incident.status))}</dd></div></dl><p class="hint">${t('Đưa vào bảo trì sẽ khóa thiết bị và loại xe khỏi danh sách có thể đặt sau khi IoT xác nhận.', 'Maintenance locks the device and removes it from availability after IoT acknowledgement.')}</p>${['OPEN', 'DISMISSED'].includes(incident.status) ? button('maintenance', t('Đưa vào bảo trì', 'Send to maintenance'), incident.id, 'class="primary full"') : ''}`)}${panel(
+        t('Thao tác theo tình trạng', 'Actions by status'),
+        d.incidents
+          .filter((i) => i.status === 'MAINTENANCE')
+          .map((i) =>
+            button(
+              'recover',
+              t('Khôi phục ', 'Restore ') + i.resourceId,
+              i.id,
+              'class="secondary full"',
+            ),
+          )
+          .join('') +
+          (incident.status === 'OPEN'
+            ? button(
+                'dismiss',
+                t('Bỏ qua cảnh báo nhẹ', 'Dismiss minor alert'),
+                incident.id,
+                'class="secondary full"',
+              )
+            : ''),
+      )}</div>`;
+    body += `<details class="op-extra"><summary>${t('Ghi nhận sự cố', 'Report incident')}</summary>${form(
+      'incident',
+      select(
+        'resource',
+        t('Thiết bị', 'Device'),
+        resourceOptions({ ...d, spaces: [] }),
+      ) +
+        select(
+          'severity',
+          t('Mức độ', 'Severity'),
+          ['WARNING', 'CRITICAL'].map((x) => [x, label(x)]),
+        ) +
+        reason() +
+        submit(t('Ghi nhận', 'Record')),
+    )}</details>${d.operatorCommands.length ? commandTable(d) : ''}`;
+  } else if (key === 'charging') {
     const p = d.proposal;
-    if (p)
-      body += panel(
-        t('Đề xuất', 'Proposal') + ' ' + p.id,
-        `<p>${e(hubName(d, p.hubId))} ${status(p.state)}</p>${
-          p.slots
-            .map((s) =>
+    body = form(
+      'schedule',
+      `<div class="op-schedule-fields">${select('hub', 'Mobility Hub', hubs(d), state.chargingHub || 'campus')}${submit(t('Tạo / cập nhật đề xuất', 'Create / update proposal'))}</div><details class="op-extra"><summary>${t('Thời gian bắt đầu', 'Start time')}</summary>${input('start', t('Bắt đầu', 'Start'), 'datetime-local', localDate(ops.now() + 60000), 'required')}</details>`,
+    );
+    if (p) {
+      body += table(
+        [
+          t('Ưu tiên', 'Priority'),
+          t('Xe / Pin', 'Vehicle / Battery'),
+          t('Nhu cầu sử dụng', 'Usage demand'),
+          t('Cổng sạc', 'Charging port'),
+          t('Thời gian', 'Time'),
+        ],
+        [
+          ...p.slots.map((s, i) => [
+            String(i + 1),
+            `${e(s.vehicleId)} · ${d.vehicles.find((v) => v.id === s.vehicleId)?.battery}%`,
+            t('Sạc đến 80%', 'Charge to 80%'),
+            e(s.portId),
+            e(date(s.start) + ' – ' + date(s.end)),
+          ]),
+          ...p.queue.map((id, i) => [
+            String(p.slots.length + i + 1),
+            e(id),
+            '—',
+            t('Hàng đợi', 'Queue'),
+            '—',
+          ]),
+        ],
+      );
+      if (p.queue.length)
+        body += `<div class="op-warning"><strong>${p.queue.length} ${t('xe đang chờ phân bổ', 'vehicles waiting for allocation')}</strong><p>${t('Công suất hiện tại chưa đáp ứng toàn bộ nhu cầu. Có thể điều phối bớt xe sang Hub lân cận.', 'Current capacity cannot meet all demand. Consider dispatching vehicles to a nearby Hub.')}</p></div>`;
+      body += `<div class="op-action-row">${button('toggle-slots', t('Điều chỉnh khung giờ', 'Adjust time slots'), '', 'class="secondary"')}<a href="#/operator/dispatch" class="button secondary">${t('Điều phối xe sang Hub khác', 'Dispatch to another Hub')}</a>${p.state === 'DRAFT' && p.slots.length ? button('confirm-schedule', t('Xác nhận và lưu lịch', 'Confirm and save schedule'), '', 'class="primary"') : status(p.state)}</div>`;
+      if (state.editSlots)
+        body += p.slots
+          .map((s) =>
+            panel(
+              s.vehicleId,
               form(
                 'edit-slot',
-                `<strong>${e(s.vehicleId)}</strong><div class="form-grid">${select(
+                select(
                   'port',
                   t('Cổng', 'Port'),
                   d.ports
                     .filter((x) => x.hubId === p.hubId)
                     .map((x) => [x.id, x.id]),
                   s.portId,
-                )}${input('start', t('Bắt đầu', 'Start'), 'datetime-local', localDate(s.start), 'required')}${input('end', t('Kết thúc', 'End'), 'datetime-local', localDate(s.end), 'required')}</div>${p.state === 'DRAFT' ? submit(t('Lưu khung giờ', 'Save slot')) : ''}`,
+                ) +
+                  input(
+                    'start',
+                    t('Bắt đầu', 'Start'),
+                    'datetime-local',
+                    localDate(s.start),
+                    'required',
+                  ) +
+                  input(
+                    'end',
+                    t('Kết thúc', 'End'),
+                    'datetime-local',
+                    localDate(s.end),
+                    'required',
+                  ) +
+                  (p.state === 'DRAFT'
+                    ? submit(t('Lưu khung giờ', 'Save slot'))
+                    : ''),
                 s.id,
               ),
-            )
-            .join('') ||
-          `<p>${t('Không có xe đủ điều kiện.', 'No eligible vehicles.')}</p>`
-        }${p.queue.length ? `<p>${t('Đang chờ cổng', 'Waiting for a port')}: ${e(p.queue.join(', '))}</p>` : ''}${p.state === 'DRAFT' && p.slots.length ? button('confirm-schedule', t('Kiểm tra lại và xác nhận lịch', 'Revalidate and confirm schedule'), '', 'class="primary"') : ''}`,
-      );
-    body += panel(
-      t('Lịch sạc đang giữ', 'Active charging allocations'),
-      table(
-        [
-          t('Xe', 'Vehicle'),
-          t('Cổng', 'Port'),
-          t('Bắt đầu', 'Start'),
-          t('Kết thúc', 'End'),
-        ],
-        d.bookings
-          .filter((b) => b.kind === 'CHARGING' && b.status === 'ACTIVE')
-          .map((b) => [
-            e(b.vehicleId),
-            e(b.resourceId),
-            e(date(b.start)),
-            e(date(b.end)),
-          ]),
-      ),
-    );
-  } else if (key === 'simulation') {
-    body = panel(
-      t('Kịch bản What-if', 'What-if scenario'),
-      form(
-        'simulate',
-        `<div class="form-grid">${select('hub', t('Hub', 'Hub'), hubs(d))}${input('hours', t('Khoảng mô phỏng (giờ)', 'Horizon (hours)'), 'number', '4', 'min="1" max="24" step="1" required')}${input('arrivals', t('Tổng xe đến', 'Total arrivals'), 'number', '5', 'min="0" max="100" step="1" required')}${input('departures', t('Tổng yêu cầu đi', 'Total departure requests'), 'number', '1', 'min="0" max="100" step="1" required')}</div><p>${t('Kịch bản dùng bản sao trạng thái, chia đều nhu cầu theo giờ. Chạy mô phỏng không thay đổi tài nguyên.', 'The scenario uses a snapshot and distributes demand evenly by hour. Running it does not change resources.')}</p>${submit(t('Chạy mô phỏng', 'Run simulation'))}`,
-      ),
-    );
-    const s = d.simulation;
-    if (s)
-      body += panel(
-        t('Kết quả mô phỏng', 'Simulation results'),
-        `<p>${e(s.id)} · ${e(hubName(d, s.hubId))} · ${e(date(s.at))}</p><div class="op-metrics">${metric(s.peak, t('Nhu cầu chỗ đỗ cao nhất', 'Peak parking demand'))}${metric(s.overflow, t('Chỗ vượt sức chứa', 'Parking overflow'))}${metric(s.failed, t('Yêu cầu đi thiếu xe', 'Unserved departures'))}</div><div class="simulation-chart" role="img" aria-label="${t('Nhu cầu chỗ đỗ theo giờ; số liệu ở bảng bên dưới', 'Hourly parking demand; values are in the following table')}">${s.timeline.map((x) => `<div><span style="height:${Math.max(3, (x.occupancy / Math.max(1, s.peak)) * 120)}px"></span><small>${x.hour}h</small></div>`).join('')}</div>${table(
-          [t('Giờ', 'Hour'), t('Nhu cầu chỗ đỗ', 'Parking demand')],
-          s.timeline.map((x) => [String(x.hour), String(x.occupancy)]),
-        )}${s.plan ? `<p>${t('Gợi ý điều phối', 'Suggested dispatch')}: ${e(hubName(d, s.plan.source))} → ${e(hubName(d, s.plan.target))} · ${e(s.plan.vehicleIds.join(', '))}</p>${s.applied ? status('COMPLETED') : button('apply-simulation', t('Kiểm tra lại và tạo lệnh điều phối', 'Revalidate and create dispatch'), '', 'class="primary"')}` : `<p>${t('Chưa có phương án điều phối khả thi từ dữ liệu mẫu.', 'No feasible dispatch suggestion from the sample data.')}</p>`}`,
-      );
-  }
-  if (key === 'simulation') {
-    if (d.simulation)
-      body += panel(
-        t('Lưu kịch bản', 'Save scenario'),
-        form(
-          'save-scenario',
-          input(
-            'name',
-            t('Tên kịch bản', 'Scenario name'),
-            'text',
-            '',
-            'required maxlength="100"',
-          ) + submit(t('Lưu trong phiên demo', 'Save in demo session')),
-        ) +
-          button(
-            'simulation-charging',
-            t(
-              'Mở bản nháp lịch sạc cho Hub này',
-              'Open charging draft for this Hub',
             ),
-          ),
-      );
-    body += panel(
-      t('Kịch bản đã lưu', 'Saved scenarios'),
-      table(
+          )
+          .join('');
+    } else
+      body += `<div class="empty">${t('Chọn Hub và tạo đề xuất để xem lịch sạc.', 'Choose a Hub and create a proposal to see charging slots.')}</div>`;
+  } else if (key === 'simulation') {
+    const sim = d.simulation;
+    if (sim && !state.newSimulation) {
+      heading = t('Kết quả mô phỏng', 'Simulation results');
+      description =
+        hubName(d, sim.hubId) + ' · ' + sim.hours + t(' giờ', ' hours');
+      const m = d.metrics.find((h) => h.id === sim.hubId);
+      body = `<div class="op-metrics">${metric(sim.failed ? 1 : 0, t('Hub có nguy cơ thiếu xe', 'Hubs at risk of shortage'))}${metric(sim.failed, t('Lượt không đặt được xe', 'Unserved requests'))}${metric(Math.round((sim.peak / Math.max(1, m.capacity)) * 100) + '%', t('Mức dùng chỗ đỗ cao nhất', 'Peak parking usage'))}${metric((sim.timeline.find((x) => x.occupancy === sim.peak)?.hour ?? 0) + 'h', t('Thời điểm cao điểm', 'Peak time'))}</div>${table([t('Phương án đề xuất', 'Proposed option'), t('Tài nguyên', 'Resources'), t('Tác động dự kiến', 'Expected impact')], sim.plan ? [[t('Điều chuyển ', 'Dispatch ') + sim.plan.vehicleIds.length + t(' xe', ' vehicles'), e(hubName(d, sim.plan.source) + ' → ' + hubName(d, sim.plan.target)), t('Tăng khả năng đáp ứng nhu cầu', 'Improve availability')]] : [])}<p class="hint">${t('Chọn phương án để mở màn hình xử lý với thông tin đã điền sẵn.', 'Select a proposal to open its form with prefilled information.')}</p><div class="op-action-row">${button('save-current-scenario', t('Lưu kịch bản', 'Save scenario'), '', 'class="secondary"')}${sim.plan && !sim.applied ? button('prepare-simulation', t('Áp dụng điều phối đề xuất', 'Apply proposed dispatch'), '', 'class="primary"') : ''}${button('simulation-charging', t('Áp dụng lịch sạc đề xuất', 'Apply proposed charging'), '', 'class="secondary"')}</div><div class="op-action-row">${button('new-simulation', t('Kịch bản mới', 'New scenario'))}</div>`;
+    } else {
+      const hub = state.simulationHub || d.hubs[0].id,
+        m = d.metrics.find((x) => x.id === hub);
+      body = `<div class="op-columns">${panel(t('Thiết lập nhu cầu giả định', 'Configure hypothetical demand'), form('simulate', select('hub', 'Mobility Hub', hubs(d), hub) + input('hours', t('Khoảng thời gian mô phỏng (giờ)', 'Simulation horizon (hours)'), 'number', '2', 'min="1" max="24" step="1" required') + input('arrivals', t('Số xe đến giả định', 'Hypothetical arrivals'), 'number', '5', 'min="0" max="100" step="1" required') + input('departures', t('Số lượt cần xe giả định', 'Hypothetical departure demand'), 'number', '4', 'min="0" max="100" step="1" required') + submit(t('Bắt đầu mô phỏng', 'Start simulation'))))}${panel(t('Dữ liệu nền', 'Baseline data'), `<dl class="op-details"><div><dt>${t('Cập nhật lúc', 'Updated at')}</dt><dd>${e(when)}</dd></div><div><dt>${t('Xe khả dụng', 'Available vehicles')}</dt><dd>${d.vehicles.filter((v) => v.hubId === hub && ops.eligible(v)).length}</dd></div><div><dt>${t('Chỗ đỗ trống', 'Free parking spaces')}</dt><dd>${m.capacity - m.used}</dd></div><div><dt>${t('Cổng sạc khả dụng', 'Available chargers')}</dt><dd>${m.availablePorts}</dd></div></dl><p class="hint">${t('Các tham số thay đổi chỉ phục vụ kịch bản mô phỏng.', 'Changed parameters apply only to the simulation.')}</p>`)}</div>`;
+    }
+    if (d.scenarios.length)
+      body += `<details class="op-extra"><summary>${t('Kịch bản đã lưu', 'Saved scenarios')}</summary>${table(
         [t('Tên', 'Name'), t('Thời điểm', 'Time'), t('Thao tác', 'Action')],
         d.scenarios.map((s) => [
           e(s.name),
           e(date(s.at)),
-          button(
-            'load-scenario',
-            t('Chạy lại với dữ liệu hiện tại', 'Rerun with current data'),
-            s.id,
-          ),
+          button('load-scenario', t('Chạy lại', 'Rerun'), s.id),
         ]),
-      ),
-    );
+      )}</details>`;
   }
-  return `<section id="operator-page">${title(t(...names[key]), t('Trung tâm vận hành · Smart E-Mobility Hub', 'Operations center · Smart E-Mobility Hub'))}<div id="op-feedback" role="status" tabindex="-1" hidden></div>${body}</section>`;
+  return `<section id="operator-page" data-view="${e(key)}">${title(heading, description)}<div id="op-feedback" role="status" tabindex="-1" hidden></div>${body}</section>`;
 }
 
 function vehicleTable(vehicles, ops) {
@@ -547,23 +650,53 @@ export function bindOperator(root, ops, route, state, refresh) {
           value('severity'),
         );
       if (kind === 'dispatch')
-        ops.dispatch(value('source'), value('target'), v.getAll('vehicles'));
+        state.order = ops.dispatch(
+          value('source'),
+          value('target'),
+          v.getAll('vehicles'),
+        ).id;
       if (kind === 'schedule') {
         state.chargingHub = value('hub');
         ops.buildSchedule(value('hub'), time('start'));
       }
       if (kind === 'edit-slot')
         ops.editSlot(f.dataset.id, value('port'), time('start'), time('end'));
-      if (kind === 'simulate')
+      if (kind === 'simulate') {
+        state.newSimulation = false;
         ops.simulate(
           value('hub'),
           Number(value('arrivals')),
           Number(value('departures')),
           Number(value('hours')),
         );
+      }
     }, !['schedule', 'edit-slot', 'simulate'].includes(kind));
   });
+  const updateCapacity = () => {
+    const count = section.querySelector('[data-dispatch-count]');
+    if (!count) return;
+    const selected = section.querySelectorAll('[name=vehicles]:checked').length;
+    count.value = String(selected);
+    const target = ops
+      .snapshot()
+      .metrics.find(
+        (h) => h.id === section.querySelector('[name=target]').value,
+      );
+    const remaining = target.capacity - target.used - selected;
+    const box = section.querySelector('[data-capacity]');
+    box.classList.toggle('error', remaining < 0);
+    box.textContent =
+      remaining >= 0
+        ? t(
+            `Hub đích còn ${remaining} chỗ sau khi tiếp nhận ${selected} xe.`,
+            `Destination has ${remaining} spaces after receiving ${selected} vehicles.`,
+          )
+        : t('Hub đích không đủ chỗ đỗ.', 'Insufficient destination parking.');
+  };
+  updateCapacity();
   section.addEventListener('click', (event) => {
+    const hubLink = event.target.closest('[data-hub-open]');
+    if (hubLink) state.resourceHub = hubLink.dataset.hubOpen;
     const b = event.target.closest('[data-op]');
     if (!b) return;
     event.stopPropagation();
@@ -571,13 +704,50 @@ export function bindOperator(root, ops, route, state, refresh) {
       id = b.dataset.id;
     if (a === 'select-resource') {
       state.resource = id;
-      section.querySelector('[name="resource"]').value = id;
-      section.querySelector('[name="operation"]').focus();
+      discardDraft = true;
+      delete state.drafts[draftKey];
+      refresh();
+      return;
+    }
+    if (
+      [
+        'view-order',
+        'new-dispatch',
+        'view-incident',
+        'toggle-slots',
+        'new-simulation',
+        'prepare-simulation',
+      ].includes(a)
+    ) {
+      if (a === 'view-order') state.order = id;
+      if (a === 'new-dispatch') {
+        state.order = null;
+        state.proposedVehicles = [];
+      }
+      if (a === 'view-incident') state.incident = id;
+      if (a === 'toggle-slots') state.editSlots = !state.editSlots;
+      if (a === 'new-simulation') state.newSimulation = true;
+      if (a === 'prepare-simulation') {
+        const plan = ops.snapshot().simulation?.plan;
+        if (!plan) return;
+        state.source = plan.source;
+        state.target = plan.target;
+        state.proposedVehicles = [...plan.vehicleIds];
+        state.order = null;
+        delete state.drafts['/operator/dispatch'];
+        location.hash = '/operator/dispatch';
+      }
+      refresh();
       return;
     }
     run(() => {
+      if (a === 'save-current-scenario')
+        ops.saveScenario(t('Kịch bản ', 'Scenario ') + date(ops.now()));
       if (a === 'refresh') ops.poll();
-      if (a === 'load-scenario') ops.loadScenario(id);
+      if (a === 'load-scenario') {
+        ops.loadScenario(id);
+        state.newSimulation = false;
+      }
       if (a === 'simulation-charging') {
         state.chargingHub = ops.snapshot().simulation.hubId;
         ops.buildSchedule(state.chargingHub, ops.now() + 60000);
@@ -604,6 +774,21 @@ export function bindOperator(root, ops, route, state, refresh) {
   });
   section.addEventListener('change', (event) => {
     saveDraft();
+    updateCapacity();
+    if (event.target.name === 'resourceHub') {
+      state.resourceHub = event.target.value;
+      refresh();
+    }
+    if (event.target.name === 'selectedResource') {
+      state.resource = event.target.value;
+      discardDraft = true;
+      delete state.drafts[draftKey];
+      refresh();
+    }
+    if (event.target.name === 'hub' && route === '/operator/simulation') {
+      state.simulationHub = event.target.value;
+      refresh();
+    }
     if (event.target.name === 'overviewHub') {
       state.hub = event.target.value;
       refresh();

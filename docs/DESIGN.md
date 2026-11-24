@@ -49,3 +49,15 @@ Nguồn bổ sung: HTML/CSS welcome sáng/tối, CSS đăng nhập và ba ảnh 
 `src/styles/figma.css` chứa các quy tắc đối chiếu mới. `src/shared/design.js` chứa thành phần tiêu đề, icon nét và thẻ thành công. Icon nét và bản đồ minh họa được dựng bằng SVG, chưa phải toàn bộ asset gốc Figma. Các màn ngoài ảnh mẫu sử dụng cùng hệ thống thành phần, cần tiếp tục so sánh với frame gốc trước khi xác nhận khớp từng pixel.
 
 Thanh giờ/Wi-Fi trong khung mobile là trang trí theo thiết kế, không đọc trạng thái thiết bị. Điều khiển demo đặt ngoài khung giao diện. Chưa thêm kết nối API trong đợt này.
+
+## Giao diện PC vận hành — 24/11/2026
+
+Nguồn: bộ ảnh PC UC00, UC08–UC15, HTML/CSS welcome/login và nhóm giám sát do người dùng gửi. `operator-design.js` dựng sidebar, auth desktop và thiết lập; `operator-figma.css` định dạng riêng để không thay layout mobile.
+
+- Khung desktop tối đa 1440px, sidebar 224px, main padding 32px; nền, font, nút, input theo thông số xuất Figma. Màn auth dùng intro 500px, form 520px, gap 64px ở kích thước đủ rộng.
+- Tách tài nguyên Hub, kết quả điều phối và kết quả mô phỏng thành trạng thái riêng. Đề xuất mô phỏng mở form điều phối điền sẵn, chưa tự tạo lệnh.
+- Bảng, thẻ số liệu và thông báo đọc trạng thái demo. Không hard-code số liệu/ACK thành công theo ảnh. Bảng trống vẫn giữ tiêu đề và thông báo chưa có dữ liệu.
+- Việt/Anh và light/dark dùng bộ tùy chọn hiện có. Dark suy ra từ palette mobile theo yêu cầu.
+- Bản đồ là SVG minh họa, không phải asset Figma. Mô phỏng giữ bộ tham số mà engine demo hiện hỗ trợ (lượt xe đến, nhu cầu xe đi, số giờ), chưa giả lập mô hình tăng phần trăm nhu cầu và hỏng cổng sạc trong ảnh.
+
+Đã kiểm tra render DOM, các thao tác chọn tài nguyên/đếm xe/mở đề xuất và hồi quy bằng test tự động. Chưa đối chiếu ảnh chụp trình duyệt theo pixel, nên chưa xác nhận pixel-perfect. Khung 1440px có lề ngoài 24px mỗi bên; dùng viewport ít nhất 1488px để kiểm tra kích thước khung đầy đủ. Không thay hợp đồng API auth.

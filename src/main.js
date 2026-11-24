@@ -8,6 +8,13 @@ let disposeOperator;
 import './index.css';
 import './styles/operator.css';
 import './styles/figma.css';
+import './styles/operator-figma.css';
+import {
+  operatorShell,
+  operatorAuthShell,
+  desktopWelcome,
+  operatorSettings,
+} from './features/operator-design.js';
 import { icon, welcomePage } from './shared/design.js';
 const accountFlow = { role: 'STUDENT' };
 import { engine, call, snapshot, demoMode } from './domain/service.js';
@@ -141,7 +148,9 @@ function render() {
     if (route === '/account/operator') accountFlow.role = 'OPERATOR';
     if (route === '/account/student') accountFlow.role = 'STUDENT';
     content = accountPage(d, route.split('/')[2], accountFlow);
-  } else if (route === '/settings') content = settings();
+  } else if (route === '/welcome/pc') content = '';
+  else if (route === '/settings')
+    content = d.user?.role === 'OPERATOR' ? operatorSettings() : settings();
   else if (route === '/student/hubs') content = hubsPage(d);
   else if (route === '/student/search') content = searchPage(d);
   else if (route === '/student/reservation-confirmed')
@@ -166,7 +175,9 @@ function render() {
             .join('')
         : `<div class="empty">${t('Chưa có thông báo', 'No notifications yet')}</div>`);
   else {
-    const f = features.find((f) => f.area === 'operator' && f.path === route);
+    const f =
+      route === '/operator/resources' ||
+      features.find((f) => f.area === 'operator' && f.path === route);
     content = f
       ? operatorPage(operations, route, operatorState)
       : title('404', t('Không tìm thấy trang', 'Page not found')) +
@@ -200,7 +211,20 @@ function render() {
         '/settings',
       ].includes(route));
   const navIcons = ['home', 'clock', 'bell', 'user'];
-  root.innerHTML = `<div class="app-frame ${operator ? 'operator-frame' : 'student-frame'} ${route === '/' ? 'welcome-frame' : ''}">${operator ? `<header class="app-header"><a href="#/operator/overview" class="brand">Mobility Hub</a>${link('/settings', t('Cài đặt', 'Settings'), 'text-link')}</header>` : `<div class="design-status" aria-hidden="true"><span>18:36</span><span>▣ Wi-Fi　67% ⌖</span></div>`}<main id="main" tabindex="-1"><div id="feedback" role="alert" tabindex="-1" hidden></div>${home ? '<header class="home-heading">Mobility Hub</header>' : ''}${content}</main>${showNav ? `<nav class="${operator ? 'operator-nav' : 'bottom-nav'}" aria-label="${t('Điều hướng chính', 'Main navigation')}">${nav.map(([path, text], i) => `<a href="#${path}" ${route === path ? 'aria-current="page" class="active"' : ''}>${operator ? '' : icon(navIcons[i])}<span>${e(text)}</span></a>`).join('')}</nav>` : ''}</div><aside class="preview-tools"><span>DEMO</span>${link('/settings', t('Giao diện / ngôn ngữ', 'Appearance / language'), 'text-link')}<details><summary>${t('Tài khoản thử', 'Demo accounts')}</summary><p>student@demo.local<br>operator@demo.local<br>Demo123!<br>${t('Mã khôi phục: 123456. Dữ liệu mẫu đặt lại khi tải lại trang. Thanh trạng thái là mẫu Figma.', 'Recovery code: 123456. Sample data resets on reload. Status bar is a Figma mockup.')}</p></details></aside>`;
+  const operatorAuth =
+    !d.user && accountFlow.role === 'OPERATOR' && route.startsWith('/account');
+  root.innerHTML = operator
+    ? operatorShell(
+        content,
+        route,
+        operations.snapshot().metrics.filter((h) => h.severity !== 'NORMAL')
+          .length,
+      )
+    : operatorAuth
+      ? operatorAuthShell(content)
+      : route === '/welcome/pc'
+        ? desktopWelcome()
+        : `<div class="app-frame ${operator ? 'operator-frame' : 'student-frame'} ${route === '/' ? 'welcome-frame' : ''}">${operator ? `<header class="app-header"><a href="#/operator/overview" class="brand">Mobility Hub</a>${link('/settings', t('Cài đặt', 'Settings'), 'text-link')}</header>` : `<div class="design-status" aria-hidden="true"><span>18:36</span><span>▣ Wi-Fi　67% ⌖</span></div>`}<main id="main" tabindex="-1"><div id="feedback" role="alert" tabindex="-1" hidden></div>${home ? '<header class="home-heading">Mobility Hub</header>' : ''}${content}</main>${showNav ? `<nav class="${operator ? 'operator-nav' : 'bottom-nav'}" aria-label="${t('Điều hướng chính', 'Main navigation')}">${nav.map(([path, text], i) => `<a href="#${path}" ${route === path ? 'aria-current="page" class="active"' : ''}>${operator ? '' : icon(navIcons[i])}<span>${e(text)}</span></a>`).join('')}</nav>` : ''}</div><aside class="preview-tools"><span>DEMO</span>${link('/settings', t('Giao diện / ngôn ngữ', 'Appearance / language'), 'text-link')}<details><summary>${t('Tài khoản thử', 'Demo accounts')}</summary><p>student@demo.local<br>operator@demo.local<br>Demo123!<br>${t('Mã khôi phục: 123456. Dữ liệu mẫu đặt lại khi tải lại trang. Thanh trạng thái là mẫu Figma.', 'Recovery code: 123456. Sample data resets on reload. Status bar is a Figma mockup.')}</p></details></aside>`;
   restoreDraft();
   if (route.startsWith('/operator'))
     disposeOperator = bindOperator(
@@ -411,6 +435,27 @@ root.addEventListener('click', (event) => {
     document
       .querySelector(`[data-hub-section="${b.dataset.hub}"]`)
       ?.scrollIntoView({ behavior: 'smooth' });
+    return;
+  }
+  if (
+    b.hasAttribute('data-op-theme') ||
+    b.hasAttribute('data-op-locale') ||
+    b.dataset.setting
+  ) {
+    const key =
+      b.dataset.setting ||
+      (b.hasAttribute('data-op-theme') ? 'theme' : 'locale');
+    const value =
+      b.dataset.value ||
+      (key === 'theme'
+        ? document.documentElement.dataset.theme === 'dark'
+          ? 'light'
+          : 'dark'
+        : document.documentElement.lang === 'en'
+          ? 'vi'
+          : 'en');
+    preference(key, value);
+    render();
     return;
   }
   const a = b.dataset.action;
