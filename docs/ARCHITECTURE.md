@@ -24,4 +24,8 @@ IDs dùng JavaScript string. DTO demo chưa phải hợp đồng API. Nội dung
 
 ## Chế độ API
 
-`main.js` chuyển sang `live-search.js` khi bật API. Không dùng snapshot/mock hoặc route guard demo trong chế độ này. UC01 public theo controller hiện tại; các route còn lại báo chưa hỗ trợ. `dev:api`/`build:api` bật chế độ API rõ ràng. Mỗi request có thể hủy khi rời trang; response cũ không ghi đè trang mới. Tọa độ chỉ giữ trong bộ nhớ form, không ghi storage.
+`main.js` mount `mobile-api.js` khi bật API. Renderer dùng lại font, màu, khung mobile và các component tài khoản/trang chủ. `shared/api/mobile.js` quản lý token trong bộ nhớ, DTO, biên nhận giao dịch và khóa idempotency. `shared/api/client.js` giữ status và lỗi có cấu trúc, hỗ trợ timeout/AbortSignal. Không dùng snapshot hoặc giao dịch DemoEngine trong API mode.
+
+Public: tìm Hub, danh sách xe từ kết quả tìm kiếm, chi tiết xe. Giao dịch yêu cầu Bearer. Khi rời trang, hủy request đọc, dừng camera và timer polling; mutation đã gửi có thể vẫn hoàn thành và cập nhật biên nhận trong bộ nhớ, nhưng không ghi đè màn hình mới. Mọi kết quả dữ liệu động được escape trước khi dựng HTML.
+
+Auth và student backend chưa được hợp nhất, DTO auth còn lệch hợp đồng. Xem `API.md` để biết giới hạn và kết quả kiểm tra thực tế.

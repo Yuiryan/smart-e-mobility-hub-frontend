@@ -1,4 +1,4 @@
-import { mountLiveSearch } from './features/live-search.js';
+import { mountMobileApi } from './features/mobile-api.js';
 let disposeLive;
 import { OperatorEngine } from './mocks/operator-engine.js';
 import { operatorPage, bindOperator } from './features/operator.js';
@@ -106,7 +106,7 @@ function render() {
   disposeLive?.();
   disposeLive = null;
   if (!demoMode) {
-    disposeLive = mountLiveSearch(root, location.hash.slice(1) || '/');
+    disposeLive = mountMobileApi(root, location.hash.slice(1) || '/');
     return;
   }
   stopScanner();
