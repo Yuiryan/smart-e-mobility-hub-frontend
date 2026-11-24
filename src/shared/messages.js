@@ -1,4 +1,8 @@
 export const messages = {
+  INVALID_OPERATION: [
+    'Kiểm tra lựa chọn, lý do và các tham số thao tác.',
+    'Check the selection, reason and operation parameters.',
+  ],
   INVALID_TIME: [
     'Chọn thời gian hợp lệ: bắt đầu từ hiện tại và kết thúc sau bắt đầu.',
     'Choose a valid future time window.',

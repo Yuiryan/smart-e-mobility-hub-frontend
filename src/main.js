@@ -1,6 +1,15 @@
 import { mountLiveSearch } from './features/live-search.js';
 let disposeLive;
+import { OperatorEngine } from './mocks/operator-engine.js';
+import { operatorPage, bindOperator } from './features/operator.js';
+const operations = new OperatorEngine(engine);
+const operatorState = {};
+let disposeOperator;
 import './index.css';
+import './styles/operator.css';
+import './styles/figma.css';
+import { icon, welcomePage } from './shared/design.js';
+const accountFlow = { role: 'STUDENT' };
 import { engine, call, snapshot, demoMode } from './domain/service.js';
 import { validWindow } from './mocks/engine.js';
 import { overlaps } from './domain/time.js';
@@ -8,6 +17,8 @@ import { features } from './features/catalog.js';
 import { accountPage } from './features/account.js';
 import {
   hubsPage,
+  searchPage,
+  reservationConfirmedPage,
   vehiclePage,
   bookingsPage,
   parkingPage,
@@ -35,7 +46,9 @@ let route = '',
   version = 0;
 const go = (path) => (location.hash = path);
 function feedback(text, error = true) {
-  const box = document.querySelector('#feedback');
+  const box =
+    document.querySelector('#auth-error') ||
+    document.querySelector('#feedback');
   if (box) {
     box.hidden = false;
     box.className = 'feedback ' + (error ? 'error' : 'success');
@@ -87,6 +100,8 @@ function settings() {
   );
 }
 function render() {
+  disposeOperator?.();
+  disposeOperator = null;
   disposeLive?.();
   disposeLive = null;
   if (!demoMode) {
@@ -120,12 +135,16 @@ function render() {
     return;
   }
   let content;
-  if (route === '/')
-    content = `<section class="welcome">${title('Mobility Hub', t('Một chạm kết nối. Một hành trình xanh.', 'One connection. A greener journey.'))}<div class="welcome-art" aria-hidden="true">🚲</div><p>${t('Tìm xe, giữ chỗ, nhận xe và sạc tại các Mobility Hub.', 'Find vehicles, reserve spaces, pick up and charge at Mobility Hubs.')}</p>${link(d.user ? (d.user.role === 'STUDENT' ? '/student/hubs' : '/operator/overview') : '/account', t('Bắt đầu hành trình', 'Start your journey'), 'button primary full')}</section>`;
-  else if (route.startsWith('/account'))
-    content = accountPage(d, route.split('/')[2]);
-  else if (route === '/settings') content = settings();
+  if (route === '/') content = welcomePage();
+  else if (route.startsWith('/account')) {
+    if (route === '/account/operator') accountFlow.role = 'OPERATOR';
+    if (route === '/account/student') accountFlow.role = 'STUDENT';
+    content = accountPage(d, route.split('/')[2], accountFlow);
+  } else if (route === '/settings') content = settings();
   else if (route === '/student/hubs') content = hubsPage(d);
+  else if (route === '/student/search') content = searchPage(d);
+  else if (route === '/student/reservation-confirmed')
+    content = reservationConfirmedPage(d);
   else if (route.startsWith('/student/vehicles/'))
     content = vehiclePage(d, decodeURIComponent(route.split('/')[3]));
   else if (route === '/student/reservations') content = bookingsPage(d);
@@ -147,22 +166,48 @@ function render() {
   else {
     const f = features.find((f) => f.area === 'operator' && f.path === route);
     content = f
-      ? title(f.id + ' · ' + t(f.title.vi, f.title.en)) +
-        `<section class="panel">${t('Phần của thành viên 2 — chưa triển khai nghiệp vụ.', 'Member 2 scope — business features are not implemented yet.')}</section>`
+      ? operatorPage(operations, route, operatorState)
       : title('404', t('Không tìm thấy trang', 'Page not found')) +
         link('/', t('Về trang chủ', 'Home'));
   }
   const nav =
     d.user?.role === 'OPERATOR'
-      ? features.filter((f) => f.area === 'operator').map((f) => [f.path, f.id])
+      ? [
+          ...features
+            .filter((f) => f.area === 'operator')
+            .map((f) => [f.path, t(f.title.vi, f.title.en)]),
+          ['/account', t('Tài khoản', 'Account')],
+        ]
       : [
           ['/student/hubs', t('Trang chủ', 'Home')],
           ['/student/reservations', t('Lượt đặt', 'Bookings')],
           ['/student/notifications', t('Thông báo', 'Alerts')],
           ['/account', t('Tài khoản', 'Account')],
         ];
-  root.innerHTML = `<div class="app-frame ${d.user?.role === 'OPERATOR' ? 'operator-frame' : ''}"><header class="app-header"><a href="#/" class="brand">◈ Mobility Hub</a>${link('/settings', t('Cài đặt', 'Settings'), 'text-link')}</header><div class="demo-banner">DEMO · ${t('Dữ liệu mô phỏng, đặt lại khi tải lại trang', 'Simulated data, resets on reload')}</div><main id="main" tabindex="-1"><div id="feedback" role="alert" tabindex="-1" hidden></div>${content}</main>${d.user ? `<nav class="${d.user.role === 'OPERATOR' ? 'operator-nav' : 'bottom-nav'}" aria-label="${t('Điều hướng chính', 'Main navigation')}">${nav.map(([path, text]) => `<a href="#${path}" ${route === path ? 'aria-current="page" class="active"' : ''}>${e(text)}</a>`).join('')}</nav>` : ''}</div>`;
+  const operator = d.user?.role === 'OPERATOR';
+  const home = route === '/student/hubs';
+  const showNav =
+    !!d.user &&
+    (operator ||
+      [
+        '/student/hubs',
+        '/student/search',
+        '/student/reservations',
+        '/student/notifications',
+        '/account',
+        '/settings',
+      ].includes(route));
+  const navIcons = ['home', 'clock', 'bell', 'user'];
+  root.innerHTML = `<div class="app-frame ${operator ? 'operator-frame' : 'student-frame'} ${route === '/' ? 'welcome-frame' : ''}">${operator ? `<header class="app-header"><a href="#/operator/overview" class="brand">Mobility Hub</a>${link('/settings', t('Cài đặt', 'Settings'), 'text-link')}</header>` : `<div class="design-status" aria-hidden="true"><span>18:36</span><span>▣ Wi-Fi　67% ⌖</span></div>`}<main id="main" tabindex="-1"><div id="feedback" role="alert" tabindex="-1" hidden></div>${home ? '<header class="home-heading">Mobility Hub</header>' : ''}${content}</main>${showNav ? `<nav class="${operator ? 'operator-nav' : 'bottom-nav'}" aria-label="${t('Điều hướng chính', 'Main navigation')}">${nav.map(([path, text], i) => `<a href="#${path}" ${route === path ? 'aria-current="page" class="active"' : ''}>${operator ? '' : icon(navIcons[i])}<span>${e(text)}</span></a>`).join('')}</nav>` : ''}</div><aside class="preview-tools"><span>DEMO</span>${link('/settings', t('Giao diện / ngôn ngữ', 'Appearance / language'), 'text-link')}<details><summary>${t('Tài khoản thử', 'Demo accounts')}</summary><p>student@demo.local<br>operator@demo.local<br>Demo123!<br>${t('Mã khôi phục: 123456. Dữ liệu mẫu đặt lại khi tải lại trang. Thanh trạng thái là mẫu Figma.', 'Recovery code: 123456. Sample data resets on reload. Status bar is a Figma mockup.')}</p></details></aside>`;
   restoreDraft();
+  if (route.startsWith('/operator'))
+    disposeOperator = bindOperator(
+      root,
+      operations,
+      route,
+      operatorState,
+      render,
+    );
   document.querySelector('main')?.focus({ preventScroll: true });
   document.querySelectorAll('[data-qr]').forEach(async (canvas) => {
     const { default: QR } = await import('qrcode');
@@ -184,10 +229,22 @@ function updateEstimate() {
       t(' phút', ' minutes');
 }
 function updateClock() {
+  document.querySelectorAll('[data-countdown]').forEach((el) => {
+    const left = Math.max(
+      0,
+      Math.ceil((Number(el.dataset.countdown) - Date.now()) / 1000),
+    );
+    el.textContent =
+      String(Math.floor(left / 60)).padStart(2, '0') +
+      ':' +
+      String(left % 60).padStart(2, '0');
+  });
   document.querySelectorAll('[data-expiry]').forEach((el) => {
     const left = Math.max(
       0,
-      Math.ceil((Number(el.dataset.expiry) - Date.now()) / 1000),
+      Math.ceil(
+        (Number(el.dataset.expiry || el.dataset.countdown) - Date.now()) / 1000,
+      ),
     );
     el.textContent =
       t('Còn hiệu lực: ', 'Expires in: ') +
@@ -227,10 +284,7 @@ root.addEventListener('submit', (event) => {
     kind = form.dataset.form;
   if (!kind) return;
   action(async () => {
-    if (
-      ['register', 'reset', 'password'].includes(kind) &&
-      f.get('password') !== f.get('confirm')
-    ) {
+    if (kind === 'password' && f.get('password') !== f.get('confirm')) {
       feedback(t('Mật khẩu nhập lại không khớp.', 'Passwords do not match.'));
       return;
     }
@@ -239,19 +293,32 @@ root.addEventListener('submit', (event) => {
       clearDrafts();
       go(f.get('role') === 'OPERATOR' ? '/operator/overview' : '/student/hubs');
     } else if (kind === 'register') {
-      await call('register', f.get('name'), f.get('email'), f.get('password'));
-      go('/account');
+      await call(
+        'register',
+        f.get('name'),
+        f.get('email'),
+        f.get('password'),
+        f.get('studentId'),
+      );
+      go('/account/registered');
     } else if (kind === 'forgot') {
       await call('requestReset', f.get('email'));
+      accountFlow.email = f.get('email');
+      go('/account/verify');
+    } else if (kind === 'verify') {
+      await call('verifyReset', accountFlow.email || '', f.get('code'));
+      accountFlow.code = f.get('code');
       go('/account/reset');
     } else if (kind === 'reset') {
       await call(
         'resetPassword',
-        f.get('email'),
-        f.get('code'),
+        accountFlow.email || '',
+        accountFlow.code || '',
         f.get('password'),
       );
-      go('/account');
+      delete accountFlow.email;
+      delete accountFlow.code;
+      go('/account/changed');
     } else if (kind === 'password') {
       await call('changePassword', f.get('current'), f.get('password'));
       go('/account');
@@ -297,7 +364,16 @@ root.addEventListener('submit', (event) => {
           w,
         );
       clearDrafts();
-      go('/student/reservations');
+      go(
+        kind === 'reserve'
+          ? '/student/reservation-confirmed'
+          : '/student/reservations',
+      );
+    } else if (kind === 'scan-vehicle') {
+      const id = String(f.get('code')).trim();
+      if (!snapshot().vehicles.some((v) => v.id === id && !v.personal))
+        throw Object.assign(new Error('INVALID_QR'), { code: 'INVALID_QR' });
+      go('/student/vehicles/' + encodeURIComponent(id));
     } else if (kind === 'pickup' || kind === 'return') {
       if (
         !(await confirmAction(
@@ -402,7 +478,8 @@ root.addEventListener('click', (event) => {
     if (a === 'logout') {
       await call('logout');
       clearDrafts();
-      go('/account');
+      for (const key of Object.keys(operatorState)) delete operatorState[key];
+      go('/');
     } else if (a === 'clear-drafts') {
       clearDrafts();
       feedback(t('Đã xóa dữ liệu form tạm.', 'Saved forms cleared.'), false);
@@ -506,15 +583,19 @@ setInterval(async () => {
       return;
     }
     let changed = false;
-    for (const c of before.commands.filter((c) => c.state === 'PENDING')) {
+    for (const c of before.commands.filter(
+      (c) => c.state === 'PENDING' && before.user?.role === 'STUDENT',
+    )) {
       await call('pollCommand', c.id);
       if (snapshot().commands.find((x) => x.id === c.id)?.state !== c.state)
         changed = true;
     }
     if (
-      route === '/student/reservations' &&
-      [...document.querySelectorAll('[data-expiry]')].some(
-        (el) => Number(el.dataset.expiry) <= Date.now(),
+      ['/student/reservations', '/student/reservation-confirmed'].includes(
+        route,
+      ) &&
+      [...document.querySelectorAll('[data-expiry], [data-countdown]')].some(
+        (el) => Number(el.dataset.expiry || el.dataset.countdown) <= Date.now(),
       )
     )
       changed = true;

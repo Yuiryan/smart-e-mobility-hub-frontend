@@ -4,10 +4,10 @@ HTML + CSS + JavaScript thuần, ES modules. Vite phục vụ phát triển/buil
 
 ```text
 index.html → main.js (hash router, events, role guard)
-  → features/account.js, student.js và các module vận hành tiếp theo
+  → features/account.js, student.js, operator.js
   → shared/ui.js, messages.js, scanner.js
   → domain/service.js
-      → mocks/engine.js (chế độ demo)
+      → mocks/engine.js + mocks/operator-engine.js (chế độ demo)
       → features/hub-search-api.js → shared/api/client.js (UC01 thật)
   → Spring Boot m1_student (UC01 hiện có)
 ```

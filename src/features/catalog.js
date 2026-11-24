@@ -83,7 +83,7 @@ export const features = [
     id: 'UC08',
     path: '/operator/overview',
     area: 'operator',
-    owner: 'Thành viên 2',
+    owner: 'Bạn',
     title: {
       vi: 'Tổng quan mạng lưới',
       en: 'Network overview',
@@ -93,7 +93,7 @@ export const features = [
     id: 'UC09',
     path: '/operator/interventions',
     area: 'operator',
-    owner: 'Thành viên 2',
+    owner: 'Bạn',
     title: {
       vi: 'Can thiệp tài nguyên',
       en: 'Resource intervention',
@@ -103,7 +103,7 @@ export const features = [
     id: 'UC10',
     path: '/operator/alerts',
     area: 'operator',
-    owner: 'Thành viên 2',
+    owner: 'Bạn',
     title: {
       vi: 'Cảnh báo quá tải',
       en: 'Overload alerts',
@@ -113,7 +113,7 @@ export const features = [
     id: 'UC11',
     path: '/operator/dispatch',
     area: 'operator',
-    owner: 'Thành viên 2',
+    owner: 'Bạn',
     title: {
       vi: 'Điều phối xe',
       en: 'Vehicle dispatch',
@@ -123,7 +123,7 @@ export const features = [
     id: 'UC12',
     path: '/operator/incidents',
     area: 'operator',
-    owner: 'Thành viên 2',
+    owner: 'Bạn',
     title: {
       vi: 'Quản lý sự cố',
       en: 'Incident management',
@@ -133,7 +133,7 @@ export const features = [
     id: 'UC13',
     path: '/operator/charging',
     area: 'operator',
-    owner: 'Thành viên 2',
+    owner: 'Bạn',
     title: {
       vi: 'Lập lịch sạc',
       en: 'Charging schedule',
@@ -143,7 +143,7 @@ export const features = [
     id: 'UC14',
     path: '/operator/simulation',
     area: 'operator',
-    owner: 'Thành viên 2',
+    owner: 'Bạn',
     title: {
       vi: 'Mô phỏng What-if',
       en: 'What-if simulation',
