@@ -12,10 +12,25 @@ import {
   outcome,
 } from '../shared/ui.js';
 import { icon, mobileHeading, successCard } from '../shared/design.js';
-export function hubsPage() {
+export function availableVehicles(d, now = Date.now()) {
+  return d.vehicles.filter(
+    (v) =>
+      !v.personal &&
+      v.status === 'AVAILABLE' &&
+      v.battery >= 20 &&
+      !v.fault &&
+      !v.operatorPending &&
+      now - v.observedAt <= 120000,
+  );
+}
+export function hubsPage(d) {
+  const suggested = availableVehicles(d)[0];
+  const bookingPath = suggested
+    ? '/student/vehicles/' + encodeURIComponent(suggested.id)
+    : '/student/vehicles';
   const service = (path, name, glyph) =>
     `<a href="#${path}" class="home-service"><span>${icon(glyph)}</span><small>${e(name)}</small></a>`;
-  return `<a href="#/student/search" class="home-search">${icon('search')}<span>${t('Tìm xe hoặc Mobility Hub', 'Find a vehicle or Mobility Hub')}</span></a><div class="figma-map"><svg viewBox="0 0 342 128" aria-hidden="true"><rect width="342" height="128" fill="var(--tint)"/><path d="M75 0h190v128H75Z" fill="var(--background)"/><path d="M60 20h40v28H60ZM160 12h30v20h-30ZM215 95h40v24h-40Z" fill="var(--map-block)"/><path d="m65-10 70 150M235-10l-50 150M0 85l342-70M35 25l270 90" stroke="var(--surface)" stroke-width="10"/><path d="m65-10 70 150M235-10l-50 150M0 85l342-70M35 25l270 90" stroke="var(--border)" stroke-width="1"/></svg><a href="#/student/search" class="map-label pin-one">${icon('pin')}Metro</a><a href="#/student/search" class="map-label pin-two">${icon('pin')}Dorm B</a><a href="#/student/search" class="map-label pin-three">${icon('pin')}HCMUT</a></div><div class="home-quick"><a href="#/student/search">${t('Đặt xe', 'Book a vehicle')}${icon('bike')}</a><a href="#/student/search">${t('Tìm Mobility Hub', 'Find a Mobility Hub')}${icon('pin')}</a></div><h2 class="services-title">${t('Dịch vụ khác', 'Other services')}</h2><div class="home-services">${service('/student/parking', t('Đặt chỗ đỗ', 'Book parking'), 'parking')}${service('/student/charging', t('Đăng ký sạc', 'Register charging'), 'charge')}${service('/student/return', t('Trả xe', 'Return vehicle'), 'return')}${service('/student/pickup', t('Nhận xe', 'Pick up vehicle'), 'qr')}</div>`;
+  return `<a href="#/student/search" class="home-search">${icon('search')}<span>${t('Tìm xe hoặc Mobility Hub', 'Find a vehicle or Mobility Hub')}</span></a><div class="figma-map"><svg viewBox="0 0 342 128" aria-hidden="true"><rect width="342" height="128" fill="var(--tint)"/><path d="M75 0h190v128H75Z" fill="var(--background)"/><path d="M60 20h40v28H60ZM160 12h30v20h-30ZM215 95h40v24h-40Z" fill="var(--map-block)"/><path d="m65-10 70 150M235-10l-50 150M0 85l342-70M35 25l270 90" stroke="var(--surface)" stroke-width="10"/><path d="m65-10 70 150M235-10l-50 150M0 85l342-70M35 25l270 90" stroke="var(--border)" stroke-width="1"/></svg><a href="#/student/search" class="map-label pin-one">${icon('pin')}Metro</a><a href="#/student/search" class="map-label pin-two">${icon('pin')}Dorm B</a><a href="#/student/search" class="map-label pin-three">${icon('pin')}HCMUT</a></div><div class="home-quick"><a href="#${bookingPath}">${t('Đặt xe', 'Book a vehicle')}${icon('bike')}</a><a href="#/student/search">${t('Tìm Mobility Hub', 'Find a Mobility Hub')}${icon('pin')}</a></div><h2 class="services-title">${t('Dịch vụ khác', 'Other services')}</h2><div class="home-services">${service('/student/parking', t('Đặt chỗ đỗ', 'Book parking'), 'parking')}${service('/student/charging', t('Đăng ký sạc', 'Register charging'), 'charge')}${service('/student/return', t('Trả xe', 'Return vehicle'), 'return')}${service('/student/pickup', t('Nhận xe', 'Pick up vehicle'), 'qr')}</div>`;
 }
 export function searchPage(d) {
   return (
@@ -45,6 +60,20 @@ export function searchPage(d) {
       )}</div><p id="search-empty" hidden>${t('Không có kết quả phù hợp.', 'No matching results.')}</p><button class="secondary full" data-action="gps">${icon('pin')}${t('Dùng vị trí của tôi', 'Use my location')}</button><p id="gps-result" class="hint" aria-live="polite"></p>`
   );
 }
+export function availableVehiclesPage(d) {
+  const vehicles = availableVehicles(d);
+  return (
+    mobileHeading(t('Phương tiện khả dụng', 'Available vehicles')) +
+    (vehicles.length
+      ? `<div class="available-vehicles">${vehicles
+          .map((v) => {
+            const hub = d.hubs.find((h) => h.id === v.hubId);
+            return `<a class="available-vehicle" href="#/student/vehicles/${encodeURIComponent(v.id)}">${icon('bike')}<span><strong>${v.type === 'BIKE' ? t('Xe đạp điện', 'Electric bicycle') : t('Xe máy điện', 'Electric scooter')}</strong><small>${e(v.id)} · ${e(hub?.name || '')}</small><small>${t('Dung lượng pin', 'Battery level')}: ${v.battery}%</small>${badge(v.status)}</span>${icon('back', 'forward')}</a>`;
+          })
+          .join('')}</div>`
+      : `<div class="empty" role="status">${t('Hiện chưa có phương tiện khả dụng. Vui lòng thử lại sau.', 'No vehicles are available right now. Please try again later.')}</div>`)
+  );
+}
 export function vehiclePage(d, id) {
   const v = d.vehicles.find((v) => v.id === id && !v.personal);
   if (!v) return empty(t('Không tìm thấy xe', 'Vehicle not found'));
@@ -56,8 +85,11 @@ export function vehiclePage(d, id) {
       v.fault ||
       v.operatorPending;
   return (
-    mobileHeading(t('Chi tiết xe', 'Vehicle details'), '/student/search') +
-    `<section class="vehicle-hero">${icon('bike')}<div><h2>${v.type === 'BIKE' ? t('Xe đạp điện', 'Electric bicycle') : t('Xe máy điện', 'Electric scooter')}</h2><p>${e(v.id)} · ${e(d.hubs.find((h) => h.id === v.hubId)?.name)}</p>${badge(stale ? 'STALE' : v.status)}</div></section><div class="battery-readout">${icon('battery')}<strong>${v.battery}%</strong><span>${t('Mức pin', 'Battery level')}</span></div><dl class="vehicle-details"><div><dt>${t('Vị trí', 'Location')}</dt><dd>${e(d.hubs.find((h) => h.id === v.hubId)?.name)}</dd></div><div><dt>${t('Trạng thái', 'Status')}</dt><dd>${badge(stale ? 'STALE' : v.status)}</dd></div><div><dt>${t('Cập nhật cuối', 'Last updated')}</dt><dd>${e(new Date(v.observedAt).toLocaleTimeString())}</dd></div></dl><form data-form="reserve" data-id="${e(id)}" class="reservation-form"><details><summary>${t('Chọn thời gian thuê', 'Choose rental times')}</summary>${times()}</details><button class="primary full" ${blocked ? 'disabled' : ''}>${t('Đặt trước xe này', 'Reserve this vehicle')}</button></form>${link('/student/search', t('Chọn xe khác', 'Choose another vehicle'), 'button secondary full')}`
+    mobileHeading(
+      t('Chi tiết phương tiện', 'Vehicle details'),
+      '/student/vehicles',
+    ) +
+    `<section class="vehicle-hero">${icon('bike')}<div><h2>${v.type === 'BIKE' ? t('Xe đạp điện', 'Electric bicycle') : t('Xe máy điện', 'Electric scooter')}</h2><p>${e(v.id)} · ${e(d.hubs.find((h) => h.id === v.hubId)?.name)}</p>${badge(stale ? 'STALE' : v.status)}</div></section><div class="battery-readout">${icon('battery')}<strong>${v.battery}%</strong><span>${t('Dung lượng pin', 'Battery level')}</span></div><dl class="vehicle-details"><div><dt>${t('Vị trí', 'Location')}</dt><dd>${e(d.hubs.find((h) => h.id === v.hubId)?.name)}</dd></div><div><dt>${t('Trạng thái', 'Status')}</dt><dd>${badge(stale ? 'STALE' : v.status)}</dd></div><div><dt>${t('Cập nhật gần nhất', 'Last updated')}</dt><dd>${e(new Date(v.observedAt).toLocaleTimeString())}</dd></div></dl><form data-form="reserve" data-id="${e(id)}" class="reservation-form"><details><summary>${t('Chọn thời gian thuê', 'Choose rental times')}</summary>${times()}</details><button class="primary full" ${blocked ? 'disabled' : ''}>${t('Đặt trước xe này', 'Reserve this vehicle')}</button></form>${link('/student/vehicles', t('Chọn phương tiện khác', 'Choose another vehicle'), 'button secondary full')}`
   );
 }
 export function reservationConfirmedPage(d) {

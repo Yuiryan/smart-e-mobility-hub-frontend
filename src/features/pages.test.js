@@ -3,6 +3,8 @@ import { DemoEngine } from '../mocks/engine.js';
 import { accountPage } from './account.js';
 import {
   searchPage,
+  hubsPage,
+  availableVehiclesPage,
   vehiclePage,
   bookingsPage,
   parkingPage,
@@ -22,6 +24,7 @@ describe('Vanilla HTML pages', () => {
     const d = new DemoEngine().snapshot();
     for (const page of [
       searchPage,
+      availableVehiclesPage,
       bookingsPage,
       parkingPage,
       chargingPage,
@@ -70,5 +73,41 @@ describe('Figma account and scanner states', () => {
     document.body.innerHTML = pickupPage(new DemoEngine().snapshot());
     expect(document.querySelector('#camera')).not.toBeNull();
     expect(document.querySelector('[data-form="scan-vehicle"]')).not.toBeNull();
+  });
+});
+
+describe('Vehicle booking navigation', () => {
+  it('opens details directly from Book a vehicle and keeps Hub search separate', () => {
+    const d = new DemoEngine().snapshot();
+    document.body.innerHTML = hubsPage(d);
+    const links = document.querySelectorAll('.home-quick a');
+    expect(links[0].getAttribute('href')).toBe('#/student/vehicles/E-024');
+    expect(links[1].getAttribute('href')).toBe('#/student/search');
+    document.body.innerHTML = vehiclePage(d, 'E-024');
+    expect(
+      document.querySelector('a.button.secondary').getAttribute('href'),
+    ).toBe('#/student/vehicles');
+  });
+  it('lists only available vehicles and links each one to its details', () => {
+    const d = new DemoEngine().snapshot();
+    d.vehicles.find((v) => v.id === 'E-052').fault = true;
+    document.body.innerHTML = availableVehiclesPage(d);
+    const hrefs = [...document.querySelectorAll('.available-vehicle')].map(
+      (a) => a.getAttribute('href'),
+    );
+    expect(hrefs).toEqual([
+      '#/student/vehicles/E-024',
+      '#/student/vehicles/S-018',
+    ]);
+    d.vehicles.forEach((v) => {
+      v.status = 'RESERVED';
+    });
+    document.body.innerHTML = hubsPage(d);
+    expect(document.querySelector('.home-quick a').getAttribute('href')).toBe(
+      '#/student/vehicles',
+    );
+    document.body.innerHTML = availableVehiclesPage(d);
+    expect(document.querySelector('[role="status"]')).not.toBeNull();
+    expect(document.querySelector('.available-vehicle')).toBeNull();
   });
 });

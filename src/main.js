@@ -18,6 +18,7 @@ import { accountPage } from './features/account.js';
 import {
   hubsPage,
   searchPage,
+  availableVehiclesPage,
   reservationConfirmedPage,
   vehiclePage,
   bookingsPage,
@@ -145,6 +146,7 @@ function render() {
   else if (route === '/student/search') content = searchPage(d);
   else if (route === '/student/reservation-confirmed')
     content = reservationConfirmedPage(d);
+  else if (route === '/student/vehicles') content = availableVehiclesPage(d);
   else if (route.startsWith('/student/vehicles/'))
     content = vehiclePage(d, decodeURIComponent(route.split('/')[3]));
   else if (route === '/student/reservations') content = bookingsPage(d);
