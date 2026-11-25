@@ -1,0 +1,554 @@
+{
+  "version": 0,
+  "accounts": [
+    {
+      "id": "acc_sv_001",
+      "email": "sv01@example.com",
+      "passwordHash": "sha256$demo-student-001$025c78d3ea97517583b3093aa3bb64325249e6e4a4a6c06f22be84f829fe3587",
+      "role": "STUDENT",
+      "active": true,
+      "createdAt": "2026-11-24T00:00:00Z"
+    },
+    {
+      "id": "acc_sv_002",
+      "email": "sv02@example.com",
+      "passwordHash": "sha256$demo-student-002$9ff5d22f4737435b6d3f7b69dbcc85d6430b40ecacfcab9dca2d094c6001a8ca",
+      "role": "STUDENT",
+      "active": true,
+      "createdAt": "2026-11-24T00:00:00Z"
+    },
+    {
+      "id": "acc_sv_003",
+      "email": "sv03@example.com",
+      "passwordHash": "sha256$demo-student-003$674b2114f2517c28f67d2ac38060b40af423f1b24e65fc5cd711f0d6b1b1422a",
+      "role": "STUDENT",
+      "active": true,
+      "createdAt": "2026-11-24T00:00:00Z"
+    },
+    {
+      "id": "acc_op_001",
+      "email": "operator01@example.com",
+      "passwordHash": "sha256$demo-operator-001$caa99989facbbfde7ec063af527e9e411af26b6305e234fe245972ffbd5afaf9",
+      "role": "OPERATOR",
+      "active": true,
+      "createdAt": "2026-11-24T00:00:00Z"
+    },
+    {
+      "id": "acc_op_002",
+      "email": "operator02@example.com",
+      "passwordHash": "sha256$demo-operator-002$0587251c08ae0abc69cb24065d6d2f8d15f26a410615433ae63b3f841a23c748",
+      "role": "OPERATOR",
+      "active": true,
+      "createdAt": "2026-11-24T00:00:00Z"
+    }
+  ],
+  "students": [
+    {
+      "studentId": "2210001",
+      "accountId": "acc_sv_001",
+      "name": "Nguyen Van An",
+      "accountStatus": "ACTIVE",
+      "verifiedAt": "2026-11-24T00:00:00Z"
+    },
+    {
+      "studentId": "2210002",
+      "accountId": "acc_sv_002",
+      "name": "Tran Thi Binh",
+      "accountStatus": "ACTIVE",
+      "verifiedAt": "2026-11-24T00:00:00Z"
+    },
+    {
+      "studentId": "2210003",
+      "accountId": "acc_sv_003",
+      "name": "Le Minh Chau",
+      "accountStatus": "ACTIVE",
+      "verifiedAt": "2026-11-24T00:00:00Z"
+    }
+  ],
+  "sessions": [],
+  "hubs": [
+    {
+      "hubId": "hub_bku",
+      "name": "Hub Bach Khoa - Co so Di An",
+      "address": "Khu do thi Dai hoc Quoc gia TP.HCM (vi tri demo)",
+      "location": {
+        "latitude": 10.8806,
+        "longitude": 106.8062
+      },
+      "serviceRadiusKm": 3.0,
+      "parkingCapacity": 8,
+      "chargingCapacityKw": 7.0,
+      "expectedIncoming": 0,
+      "expectedOutgoing": 0
+    },
+    {
+      "hubId": "hub_ktxa",
+      "name": "Hub Ky tuc xa Khu A",
+      "address": "Khu do thi Dai hoc Quoc gia TP.HCM (vi tri demo)",
+      "location": {
+        "latitude": 10.876,
+        "longitude": 106.8068
+      },
+      "serviceRadiusKm": 3.0,
+      "parkingCapacity": 8,
+      "chargingCapacityKw": 7.0,
+      "expectedIncoming": 0,
+      "expectedOutgoing": 0
+    },
+    {
+      "hubId": "hub_ktxb",
+      "name": "Hub Ky tuc xa Khu B",
+      "address": "Khu do thi Dai hoc Quoc gia TP.HCM (vi tri demo)",
+      "location": {
+        "latitude": 10.8825,
+        "longitude": 106.7826
+      },
+      "serviceRadiusKm": 3.0,
+      "parkingCapacity": 8,
+      "chargingCapacityKw": 7.0,
+      "expectedIncoming": 0,
+      "expectedOutgoing": 0
+    }
+  ],
+  "vehicles": [
+    {
+      "vehicleId": "bike_001",
+      "hubId": "hub_bku",
+      "parkingSpaceId": "space_bku_01",
+      "vehicleType": "E_BIKE",
+      "batteryPct": 85.0,
+      "batteryCapacityKwh": 0.6,
+      "maxChargingPowerKw": 0.3,
+      "status": "AVAILABLE",
+      "telemetryAt": "2026-11-24T00:00:00Z",
+      "version": 0,
+      "ownership": "SHARED",
+      "ownerAccountId": null
+    },
+    {
+      "vehicleId": "bike_002",
+      "hubId": "hub_bku",
+      "parkingSpaceId": "space_bku_02",
+      "vehicleType": "E_BIKE",
+      "batteryPct": 20.0,
+      "batteryCapacityKwh": 0.6,
+      "maxChargingPowerKw": 0.3,
+      "status": "AVAILABLE",
+      "telemetryAt": "2026-11-24T00:00:00Z",
+      "version": 0,
+      "ownership": "SHARED",
+      "ownerAccountId": null
+    },
+    {
+      "vehicleId": "bike_003",
+      "hubId": "hub_bku",
+      "parkingSpaceId": "space_bku_03",
+      "vehicleType": "E_BIKE",
+      "batteryPct": 19.9,
+      "batteryCapacityKwh": 0.6,
+      "maxChargingPowerKw": 0.3,
+      "status": "LOW_BATTERY",
+      "telemetryAt": "2026-11-24T00:00:00Z",
+      "version": 0,
+      "ownership": "SHARED",
+      "ownerAccountId": null
+    },
+    {
+      "vehicleId": "bike_004",
+      "hubId": "hub_bku",
+      "parkingSpaceId": "space_bku_04",
+      "vehicleType": "E_BIKE",
+      "batteryPct": null,
+      "batteryCapacityKwh": 0.6,
+      "maxChargingPowerKw": 0.3,
+      "status": "MAINTENANCE",
+      "telemetryAt": null,
+      "version": 0,
+      "ownership": "SHARED",
+      "ownerAccountId": null
+    },
+    {
+      "vehicleId": "bike_005",
+      "hubId": "hub_ktxa",
+      "parkingSpaceId": "space_ktxa_01",
+      "vehicleType": "E_BIKE",
+      "batteryPct": 70.0,
+      "batteryCapacityKwh": 0.6,
+      "maxChargingPowerKw": 0.3,
+      "status": "AVAILABLE",
+      "telemetryAt": "2026-11-24T00:00:00Z",
+      "version": 0,
+      "ownership": "SHARED",
+      "ownerAccountId": null
+    },
+    {
+      "vehicleId": "bike_006",
+      "hubId": "hub_ktxa",
+      "parkingSpaceId": "space_ktxa_02",
+      "vehicleType": "E_BIKE",
+      "batteryPct": 20.1,
+      "batteryCapacityKwh": 0.6,
+      "maxChargingPowerKw": 0.3,
+      "status": "AVAILABLE",
+      "telemetryAt": "2026-11-24T00:00:00Z",
+      "version": 0,
+      "ownership": "SHARED",
+      "ownerAccountId": null
+    },
+    {
+      "vehicleId": "scooter_001",
+      "hubId": "hub_ktxa",
+      "parkingSpaceId": "space_ktxa_03",
+      "vehicleType": "E_SCOOTER",
+      "batteryPct": 55.0,
+      "batteryCapacityKwh": 3.0,
+      "maxChargingPowerKw": 1.5,
+      "status": "MAINTENANCE",
+      "telemetryAt": "2026-11-24T00:00:00Z",
+      "version": 0,
+      "ownership": "SHARED",
+      "ownerAccountId": null
+    },
+    {
+      "vehicleId": "private_001",
+      "hubId": "hub_ktxa",
+      "parkingSpaceId": "space_ktxa_04",
+      "vehicleType": "E_SCOOTER",
+      "batteryPct": 60.0,
+      "batteryCapacityKwh": 3.0,
+      "maxChargingPowerKw": 1.5,
+      "status": "AVAILABLE",
+      "telemetryAt": "2026-11-24T00:00:00Z",
+      "version": 0,
+      "ownership": "PRIVATE",
+      "ownerAccountId": "acc_sv_001"
+    },
+    {
+      "vehicleId": "bike_007",
+      "hubId": "hub_ktxb",
+      "parkingSpaceId": "space_ktxb_01",
+      "vehicleType": "E_BIKE",
+      "batteryPct": 90.0,
+      "batteryCapacityKwh": 0.6,
+      "maxChargingPowerKw": 0.3,
+      "status": "AVAILABLE",
+      "telemetryAt": "2026-11-24T00:00:00Z",
+      "version": 0,
+      "ownership": "SHARED",
+      "ownerAccountId": null
+    },
+    {
+      "vehicleId": "bike_008",
+      "hubId": "hub_ktxb",
+      "parkingSpaceId": "space_ktxb_02",
+      "vehicleType": "E_BIKE",
+      "batteryPct": 65.0,
+      "batteryCapacityKwh": 0.6,
+      "maxChargingPowerKw": 0.3,
+      "status": "AVAILABLE",
+      "telemetryAt": "2026-11-24T00:00:00Z",
+      "version": 0,
+      "ownership": "SHARED",
+      "ownerAccountId": null
+    },
+    {
+      "vehicleId": "scooter_002",
+      "hubId": "hub_ktxb",
+      "parkingSpaceId": "space_ktxb_03",
+      "vehicleType": "E_SCOOTER",
+      "batteryPct": 40.0,
+      "batteryCapacityKwh": 3.0,
+      "maxChargingPowerKw": 1.5,
+      "status": "AVAILABLE",
+      "telemetryAt": "2026-11-24T00:00:00Z",
+      "version": 0,
+      "ownership": "SHARED",
+      "ownerAccountId": null
+    },
+    {
+      "vehicleId": "private_002",
+      "hubId": "hub_ktxb",
+      "parkingSpaceId": "space_ktxb_04",
+      "vehicleType": "E_SCOOTER",
+      "batteryPct": 35.0,
+      "batteryCapacityKwh": 3.0,
+      "maxChargingPowerKw": 1.5,
+      "status": "AVAILABLE",
+      "telemetryAt": "2026-11-24T00:00:00Z",
+      "version": 0,
+      "ownership": "PRIVATE",
+      "ownerAccountId": "acc_sv_002"
+    }
+  ],
+  "parkingSpaces": [
+    {
+      "id": "space_bku_01",
+      "hubId": "hub_bku",
+      "status": "OCCUPIED",
+      "vehicleType": "E_BIKE",
+      "occupiedVehicleId": "bike_001",
+      "parkingReservationId": null,
+      "vehicleReservationId": null
+    },
+    {
+      "id": "space_bku_02",
+      "hubId": "hub_bku",
+      "status": "OCCUPIED",
+      "vehicleType": "E_BIKE",
+      "occupiedVehicleId": "bike_002",
+      "parkingReservationId": null,
+      "vehicleReservationId": null
+    },
+    {
+      "id": "space_bku_03",
+      "hubId": "hub_bku",
+      "status": "OCCUPIED",
+      "vehicleType": "E_BIKE",
+      "occupiedVehicleId": "bike_003",
+      "parkingReservationId": null,
+      "vehicleReservationId": null
+    },
+    {
+      "id": "space_bku_04",
+      "hubId": "hub_bku",
+      "status": "OCCUPIED",
+      "vehicleType": "E_BIKE",
+      "occupiedVehicleId": "bike_004",
+      "parkingReservationId": null,
+      "vehicleReservationId": null
+    },
+    {
+      "id": "space_bku_05",
+      "hubId": "hub_bku",
+      "status": "AVAILABLE",
+      "vehicleType": "E_BIKE",
+      "occupiedVehicleId": null,
+      "parkingReservationId": null,
+      "vehicleReservationId": null
+    },
+    {
+      "id": "space_bku_06",
+      "hubId": "hub_bku",
+      "status": "AVAILABLE",
+      "vehicleType": "E_BIKE",
+      "occupiedVehicleId": null,
+      "parkingReservationId": null,
+      "vehicleReservationId": null
+    },
+    {
+      "id": "space_bku_07",
+      "hubId": "hub_bku",
+      "status": "AVAILABLE",
+      "vehicleType": "E_SCOOTER",
+      "occupiedVehicleId": null,
+      "parkingReservationId": null,
+      "vehicleReservationId": null
+    },
+    {
+      "id": "space_bku_08",
+      "hubId": "hub_bku",
+      "status": "AVAILABLE",
+      "vehicleType": "E_SCOOTER",
+      "occupiedVehicleId": null,
+      "parkingReservationId": null,
+      "vehicleReservationId": null
+    },
+    {
+      "id": "space_ktxa_01",
+      "hubId": "hub_ktxa",
+      "status": "OCCUPIED",
+      "vehicleType": "E_BIKE",
+      "occupiedVehicleId": "bike_005",
+      "parkingReservationId": null,
+      "vehicleReservationId": null
+    },
+    {
+      "id": "space_ktxa_02",
+      "hubId": "hub_ktxa",
+      "status": "OCCUPIED",
+      "vehicleType": "E_BIKE",
+      "occupiedVehicleId": "bike_006",
+      "parkingReservationId": null,
+      "vehicleReservationId": null
+    },
+    {
+      "id": "space_ktxa_03",
+      "hubId": "hub_ktxa",
+      "status": "OCCUPIED",
+      "vehicleType": "E_SCOOTER",
+      "occupiedVehicleId": "scooter_001",
+      "parkingReservationId": null,
+      "vehicleReservationId": null
+    },
+    {
+      "id": "space_ktxa_04",
+      "hubId": "hub_ktxa",
+      "status": "OCCUPIED",
+      "vehicleType": "E_SCOOTER",
+      "occupiedVehicleId": "private_001",
+      "parkingReservationId": null,
+      "vehicleReservationId": null
+    },
+    {
+      "id": "space_ktxa_05",
+      "hubId": "hub_ktxa",
+      "status": "AVAILABLE",
+      "vehicleType": "E_BIKE",
+      "occupiedVehicleId": null,
+      "parkingReservationId": null,
+      "vehicleReservationId": null
+    },
+    {
+      "id": "space_ktxa_06",
+      "hubId": "hub_ktxa",
+      "status": "AVAILABLE",
+      "vehicleType": "E_BIKE",
+      "occupiedVehicleId": null,
+      "parkingReservationId": null,
+      "vehicleReservationId": null
+    },
+    {
+      "id": "space_ktxa_07",
+      "hubId": "hub_ktxa",
+      "status": "AVAILABLE",
+      "vehicleType": "E_SCOOTER",
+      "occupiedVehicleId": null,
+      "parkingReservationId": null,
+      "vehicleReservationId": null
+    },
+    {
+      "id": "space_ktxa_08",
+      "hubId": "hub_ktxa",
+      "status": "AVAILABLE",
+      "vehicleType": "E_SCOOTER",
+      "occupiedVehicleId": null,
+      "parkingReservationId": null,
+      "vehicleReservationId": null
+    },
+    {
+      "id": "space_ktxb_01",
+      "hubId": "hub_ktxb",
+      "status": "OCCUPIED",
+      "vehicleType": "E_BIKE",
+      "occupiedVehicleId": "bike_007",
+      "parkingReservationId": null,
+      "vehicleReservationId": null
+    },
+    {
+      "id": "space_ktxb_02",
+      "hubId": "hub_ktxb",
+      "status": "OCCUPIED",
+      "vehicleType": "E_BIKE",
+      "occupiedVehicleId": "bike_008",
+      "parkingReservationId": null,
+      "vehicleReservationId": null
+    },
+    {
+      "id": "space_ktxb_03",
+      "hubId": "hub_ktxb",
+      "status": "OCCUPIED",
+      "vehicleType": "E_SCOOTER",
+      "occupiedVehicleId": "scooter_002",
+      "parkingReservationId": null,
+      "vehicleReservationId": null
+    },
+    {
+      "id": "space_ktxb_04",
+      "hubId": "hub_ktxb",
+      "status": "OCCUPIED",
+      "vehicleType": "E_SCOOTER",
+      "occupiedVehicleId": "private_002",
+      "parkingReservationId": null,
+      "vehicleReservationId": null
+    },
+    {
+      "id": "space_ktxb_05",
+      "hubId": "hub_ktxb",
+      "status": "AVAILABLE",
+      "vehicleType": "E_BIKE",
+      "occupiedVehicleId": null,
+      "parkingReservationId": null,
+      "vehicleReservationId": null
+    },
+    {
+      "id": "space_ktxb_06",
+      "hubId": "hub_ktxb",
+      "status": "AVAILABLE",
+      "vehicleType": "E_BIKE",
+      "occupiedVehicleId": null,
+      "parkingReservationId": null,
+      "vehicleReservationId": null
+    },
+    {
+      "id": "space_ktxb_07",
+      "hubId": "hub_ktxb",
+      "status": "AVAILABLE",
+      "vehicleType": "E_SCOOTER",
+      "occupiedVehicleId": null,
+      "parkingReservationId": null,
+      "vehicleReservationId": null
+    },
+    {
+      "id": "space_ktxb_08",
+      "hubId": "hub_ktxb",
+      "status": "AVAILABLE",
+      "vehicleType": "E_SCOOTER",
+      "occupiedVehicleId": null,
+      "parkingReservationId": null,
+      "vehicleReservationId": null
+    }
+  ],
+  "reservations": [],
+  "parkingReservations": [],
+  "rides": [],
+  "chargingPorts": [
+    {
+      "id": "port_bku_01",
+      "hubId": "hub_bku",
+      "name": "Cong sac BKU 01",
+      "powerKw": 3.5,
+      "status": "AVAILABLE"
+    },
+    {
+      "id": "port_bku_02",
+      "hubId": "hub_bku",
+      "name": "Cong sac BKU 02",
+      "powerKw": 3.5,
+      "status": "AVAILABLE"
+    },
+    {
+      "id": "port_ktxa_01",
+      "hubId": "hub_ktxa",
+      "name": "Cong sac KTXA 01",
+      "powerKw": 3.5,
+      "status": "AVAILABLE"
+    },
+    {
+      "id": "port_ktxa_02",
+      "hubId": "hub_ktxa",
+      "name": "Cong sac KTXA 02",
+      "powerKw": 3.5,
+      "status": "AVAILABLE"
+    },
+    {
+      "id": "port_ktxb_01",
+      "hubId": "hub_ktxb",
+      "name": "Cong sac KTXB 01",
+      "powerKw": 3.5,
+      "status": "AVAILABLE"
+    },
+    {
+      "id": "port_ktxb_02",
+      "hubId": "hub_ktxb",
+      "name": "Cong sac KTXB 02",
+      "powerKw": 3.5,
+      "status": "OUT_OF_SERVICE"
+    }
+  ],
+  "chargingRequests": [],
+  "chargingAllocations": [],
+  "dispatchOrders": [],
+  "incidents": [],
+  "studentOperations": [],
+  "chargingSessions": []
+}

@@ -1,0 +1,95 @@
+Dưới đây là bản tóm tắt phân chia task chi tiết cho **3 thành viên Backend** dựa trên tài liệu thiết kế Submission #3 của dự án **Smart E-Mobility Hub**:
+
+### 0. Việc làm chung (1–2 ngày đầu trước khi tách nhánh)
+
+Cả 3 thành viên cùng thống nhất và dựng khung nền tảng trong package `common`:
+
+* **Domain Entities & Enums:** `Account`, `Session`, `MobilityHub`, `Vehicle`, `ParkingSpace`, `Reservation`, `ParkingReservation`, `Ride`, `ChargingPort`, `ChargingRequest`, `ChargingAllocation`, `DispatchOrder`, `Incident`.
+
+
+* **Lưu trữ & Đồng bộ:** `InMemoryDataStore` (`ConcurrentHashMap`), `JsonStore` (đọc/ghi file `data.json`), và `StateCoordinator.commit(...)` (kiểm soát phiên bản `version` chống đặt trùng).
+
+
+
+---
+
+### 1. Người 1: Luồng Sinh viên (Student Flow) — **7 Use Case (UC-01 $\rightarrow$ UC-07)**
+
+
+
+* **Nhánh Git gợi ý:** `feat/student-flow`
+* **Nhiệm vụ chi tiết:**
+* **UC-01 (Tìm Hub & xe):** Tìm Hub trong bán kính yêu cầu; lọc xe khả dụng (`AVAILABLE`, pin $\ge 20\%$, telemetry còn mới) và sắp xếp theo khoảng cách (`SearchController`, `HubSearchService`).
+
+
+* **UC-02 (Xem chi tiết xe):** Kết hợp trạng thái xe trong RAM và số đo IoT; gắn cờ cảnh báo nếu dữ liệu cũ/thiếu (`VehicleLookupService`).
+
+
+* **UC-03 (Đặt trước xe):** Kiểm tra điều kiện sinh viên, khóa xe nguyên tử chống đặt trùng (trả HTTP 409 nếu xung đột), cấp mã `pickupCode` (chỉ lưu hash), xử lý hủy và tự động thu hồi khi hết hạn giữ chỗ (`BookingController`, `ReservationService`).
+
+
+* **UC-04 (Đặt trước chỗ đỗ):** Lọc ô đỗ không trùng khung giờ, giữ chỗ nguyên tử, tự động giải phóng sau 15 phút nếu xe chưa vào bãi (`ParkingReservationService`).
+
+
+* **UC-05 (Nhận xe qua mã QR):** Xác thực QR/mã giữ xe (hỗ trợ cả nhánh đặt trước và thuê trực tiếp), chống lặp thao tác bằng `requestId`, gửi lệnh mở khóa qua `IoTGateway` và chỉ tạo `Ride` sau khi nhận `ACK_SUCCESS` (`PickupController`, `VehiclePickupService`).
+
+
+* **UC-06 (Trả xe):** Gửi lệnh khóa tại ô đỗ (`lockAtSpace`), chốt kết thúc chuyến sau khi nhận `LockConfirmation` kèm pin cuối, cập nhật trạng thái xe (`AVAILABLE`, `LOW_BATTERY` nếu $<20\%$, hoặc `MAINTENANCE` nếu có báo sự cố) (`ReturnController`, `VehicleReturnService`).
+
+
+* **UC-07 (Đăng ký & ước tính sạc):** Tính thời gian sạc theo pin mục tiêu, kiểm tra trùng lịch cổng và giới hạn công suất toàn Hub trước khi giữ cổng (`ChargingController`, `ChargingRequestService`, `AllocationService`).
+
+
+
+
+
+---
+
+### 2. Người 2: Luồng Vận hành (Operator Flow) — **5 Use Case (UC-08 $\rightarrow$ UC-12)**
+
+
+
+* **Nhánh Git gợi ý:** `feat/operator-flow`
+* **Nhiệm vụ chi tiết:**
+* **UC-08 (Giám sát mạng lưới):** Tổng hợp báo cáo toàn mạng lưới Hub (`NetworkReport`) và chi tiết từng Hub; tự động fallback về `LatestDataStore` kèm nhãn dữ liệu cũ nếu mất kết nối IoT (`NetworkController`, `MonitoringAggregator`).
+
+
+* **UC-09 (Can thiệp vận hành):** Cho phép nhân viên khóa/mở khóa/đổi trạng thái tài nguyên kèm lý do và `AuditLog`; dùng `InterventionPolicy` để chặn thao tác nguy hiểm (như khóa xe đang có người chạy) và chỉ cập nhật sau khi có `ACK` (`InterventionController`, `InterventionService`).
+
+
+* **UC-10 (Cảnh báo quá tải Hub):** Chạy định kỳ theo `JobScheduler` để tính tỷ lệ lấp đầy chỗ đỗ và tải công suất sạc so với `ThresholdConfig`; lưu cảnh báo và đẩy thông báo mức đỏ (`AlertController`, `OverloadMonitor`, `AlertNotifier`).
+
+
+* **UC-11 (Điều phối luân chuyển xe):** Kiểm tra xe khả dụng tại Hub nguồn và sức chứa Hub đích; tạo lệnh điều phối (`DispatchOrder`), tạo lệnh từ đề xuất mô phỏng, xác nhận xe đến nơi (`confirmArrival`) hoặc hủy/hoàn tác (`DispatchController`, `DispatchService`).
+
+
+* **UC-12 (Xử lý sự cố thiết bị):** Ghi nhận sự cố, gửi lệnh khóa và đưa thiết bị vào bảo trì (`sendToMaintenance`), khôi phục thiết bị sau sửa chữa (`recoverDevice`), hoặc bỏ qua cảnh báo nhẹ (`IncidentController`, `IncidentService`).
+
+
+
+
+
+---
+
+### 3. Người 3: Xác thực, Tối ưu & Giả lập (System, Optimize & Simulator) — **3 Use Case + Hạ tầng IoT**
+
+
+
+* **Nhánh Git gợi ý:** `feat/system-auth-iot`
+* **Nhiệm vụ chi tiết:**
+* **UC-00 (Truy cập tài khoản & Phân quyền):** Đăng ký (chỉ cho sinh viên), đăng nhập theo vai trò (`Student`/`Operator`), băm mật khẩu, quản lý `Session` (tối đa 1 phiên/tài khoản, hết hạn sau 30 phút), quên mật khẩu 3 bước, và cung cấp `IdentityService` để 2 người còn lại kiểm tra quyền trên mọi API (`AccountController`, `AuthService`). *(Bàn giao sớm interface/mock của `IdentityService` và `IoTGateway` trong ngày đầu).*
+
+
+* **Hạ tầng IoT (`IoTSimulator`, `SimulatorAdapter`, `IoTGateway`):** Chạy luồng nền mỗi 3–5 giây cập nhật pin (giảm khi chạy, tăng khi sạc), tọa độ GPS, trạng thái cổng sạc; xử lý lệnh khóa/mở khóa và trả về gói tin `ACK` (hoặc giả lập timeout/lỗi).
+
+
+* **UC-13 (Lập lịch sạc thông minh):** Tự động sắp xếp lịch sạc ưu tiên cho các xe pin thấp dựa trên công suất Hub và số cổng sạc trống (`ScheduleController`, `ChargingScheduler`).
+
+
+* **UC-14 (Mô phỏng kịch bản What-if):** Nhân bản bản chụp dữ liệu độc lập (`StateSnapshot` / Sandbox) để chạy thử nghiệm kịch bản giả định và sinh đề xuất điều phối (`DispatchPlanProposal`); đảm bảo không ghi đè dữ liệu thật hay gửi lệnh xuống IoT (`SimulationController`, `SimulationEngine`).
+
+
+
+
+
+(Ghi chú: **UC-15 Tùy chỉnh hiển thị** chỉ lưu cài đặt sáng/tối và ngôn ngữ trên bộ nhớ trình duyệt phía Frontend nên không nằm trong task Backend).
