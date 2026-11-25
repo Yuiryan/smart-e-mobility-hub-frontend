@@ -78,3 +78,18 @@ URL dùng `#/student/hubs`, nên bản build không cần rewrite route phía se
 Đã thêm adapter và UI API mobile UC00–UC07 theo contract. Đối chiếu backend `m1_student` (`ca7ac1b`) và `feat/system-auth-iot` (`1f2eacd`); đã kiểm tra HTTP thật cho tìm kiếm, chi tiết xe và lỗi chưa xác thực. Chưa chạy được toàn bộ giao dịch đăng nhập vì auth/student nằm ở nhánh riêng và DTO auth còn lệch contract. Theo quyết định của bạn, frontend giữ nguyên contract, chờ backend sửa DTO.
 
 Chạy `npm.cmd run dev:api` để dùng API; `npm.cmd run build:api` tạo bản build API. [Cách chạy và các điểm còn thiếu](docs/API.md). Toàn bộ frontend hiện do bạn phụ trách; phần vận hành đã có UI/demo, API đang ưu tiên mobile. Repo chưa được deploy.
+
+## Giao diện vận hành desktop
+
+Chạy chế độ demo bằng `npm.cmd run dev`, mở `/#/welcome/pc` để xem màn chào PC hoặc `/#/account/operator` để đăng nhập vận hành. Tài khoản: `operator@demo.local` / `Demo123!`.
+
+Bản cập nhật UI nằm trên nhánh `feat/operator-workflows`. Khi lấy mã bằng Git, chuyển sang nhánh này trước khi chạy:
+
+```powershell
+git switch feat/operator-workflows
+git pull --ff-only
+npm.cmd ci
+npm.cmd run dev
+```
+
+Sidebar gồm tổng quan, tài nguyên Hub, can thiệp, cảnh báo, điều phối, sự cố, lịch sạc, mô phỏng và giao diện. Chuyển Việt/Anh và sáng/tối ở góc trên hoặc trong mục Giao diện. `dev:api` đã gắn thêm API vận hành UC08–UC14. Cần backend tích hợp các nhánh M1/M2/M3 và DTO auth đúng contract; xem [hướng dẫn API vận hành](docs/OPERATOR-API.md). `dev` vẫn là demo.

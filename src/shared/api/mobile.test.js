@@ -150,3 +150,28 @@ it('rejects a mismatched operation result without confirming a ride', async () =
   await expect(api.poll()).rejects.toThrow();
   expect(api.ride).toBeNull();
 });
+
+it('uses the backend recovery grant only in memory and validates confirmation', async () => {
+  send
+    .mockResolvedValueOnce(undefined)
+    .mockResolvedValueOnce({
+      recoveryToken: 'grant',
+      expiresAt: new Date(Date.now() + 600000).toISOString(),
+    })
+    .mockResolvedValueOnce(undefined);
+  const before = { ...localStorage };
+  await api.requestRecovery('user@example.com');
+  await api.verifyRecovery('123456');
+  await expect(api.resetPassword('new-password', 'different')).rejects.toThrow(
+    'match',
+  );
+  await api.resetPassword('new-password', 'new-password');
+  expect(send.mock.calls[1][0]).toBe('/auth/password/recovery/verify');
+  expect(JSON.parse(send.mock.calls[2][1].body)).toEqual({
+    recoveryToken: 'grant',
+    newPassword: 'new-password',
+    confirmPassword: 'new-password',
+  });
+  expect(api.recovery).toBeNull();
+  expect({ ...localStorage }).toEqual(before);
+});
