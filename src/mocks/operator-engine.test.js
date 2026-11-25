@@ -148,6 +148,7 @@ describe('Dispatch atomicity', () => {
   });
   it('does not partially mutate when there is insufficient capacity', () => {
     ops.resource('dorm-P1').occupied = true;
+    ops.resource('dorm-P2').occupied = true;
     const before = structuredClone(engine.data);
     expect(() => ops.dispatch('metro', 'dorm', ['E-024', 'E-052'])).toThrow(
       'CONFLICT',

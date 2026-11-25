@@ -29,6 +29,7 @@ export class MobileApi {
   clear() {
     this.session = null;
     this.hubs = [];
+    this.discoveryOrigin = null;
     this.reservations = [];
     this.parking = [];
     this.charging = [];
@@ -205,8 +206,24 @@ export class MobileApi {
         };
       })
       .sort((a, b) => (a.distanceKm ?? Infinity) - (b.distanceKm ?? Infinity));
-    if (!signal?.aborted) this.hubs = hubs;
+    if (!signal?.aborted) {
+      this.hubs = hubs;
+      this.discoveryOrigin = { latitude, longitude };
+    }
     return hubs;
+  }
+  removeListedVehicle(id) {
+    for (const hub of this.hubs) {
+      const vehicles = hub.vehicles.filter((v) => v.vehicleId !== id);
+      if (vehicles.length !== hub.vehicles.length) {
+        hub.vehicles = vehicles;
+        if (Number.isInteger(hub.availableVehicleCount))
+          hub.availableVehicleCount = Math.max(
+            0,
+            hub.availableVehicleCount - 1,
+          );
+      }
+    }
   }
   async search(values, signal) {
     const hubs = validateSearchResponse(
@@ -237,6 +254,7 @@ export class MobileApi {
       throw new Error(
         'Invalid reservation response; check with backend before retrying',
       );
+    this.removeListedVehicle(vehicleId);
     this.reservations.unshift({
       ...data,
       vehicleId: data.vehicleId || vehicleId,
@@ -249,6 +267,11 @@ export class MobileApi {
     const receipt = this.reservations.find((r) => r.reservationId === id);
     if (receipt) receipt.status = 'CANCELLED';
     this.saveJourney();
+  }
+  async hubCatalog(signal) {
+    const data = await this.call('/hubs', undefined, { signal });
+    if (!Array.isArray(data?.items)) throw new Error('Invalid Hub catalog');
+    return data.items;
   }
   async hubSpaces(hubId, signal) {
     const data = await this.call(
@@ -353,9 +376,12 @@ export class MobileApi {
     command.state = 'SUCCEEDED';
     command.result = data;
     this.ride = {
-      ...this.ride,
+      ...(command.kind === 'RETURN' ? this.ride : {}),
       ...(command.kind === 'PICKUP'
-        ? { vehicleId: command.body.vehicleId }
+        ? {
+            vehicleId: command.body.vehicleId,
+            reservationId: command.body.reservationId,
+          }
         : {}),
       ...data,
       status: command.kind === 'RETURN' ? 'COMPLETED' : 'ACTIVE',
@@ -364,7 +390,25 @@ export class MobileApi {
       const r = this.reservations.find(
         (r) => r.reservationId === command.body.reservationId,
       );
-      if (r) r.status = 'USED';
+      this.removeListedVehicle(command.body.vehicleId);
+      if (r) {
+        r.status = 'USED';
+        r.rideId = data.rideId;
+      }
+    } else if (command.kind === 'RETURN') {
+      const receipt = this.reservations.find(
+        (r) =>
+          r.rideId === data.rideId ||
+          (this.ride.reservationId &&
+            r.reservationId === this.ride.reservationId),
+      );
+      if (receipt) receipt.status = 'RETURNED';
+      else
+        this.reservations.unshift({
+          rideId: data.rideId,
+          vehicleId: this.ride.vehicleId,
+          status: 'RETURNED',
+        });
     }
     this.saveJourney();
   }

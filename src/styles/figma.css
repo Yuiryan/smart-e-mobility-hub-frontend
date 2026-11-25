@@ -871,3 +871,67 @@ textarea {
   width: 100%;
   border-radius: 16px;
 }
+
+.rental-cards {
+  display: grid;
+  gap: 14px;
+  margin-block: 16px;
+}
+.rental-card {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  background: var(--surface);
+  border-radius: 16px;
+  padding: 16px;
+}
+.rental-card-content {
+  flex: 1;
+  min-width: 0;
+}
+.filter-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+.battery-value,
+.hold-countdown {
+  color: var(--primary);
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+.rental-card-content .button {
+  margin-inline-start: auto;
+}
+.battery-filters {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-block: 10px 18px;
+}
+.battery-filters button[aria-pressed='true'] {
+  background: var(--primary);
+  color: var(--on-primary, white);
+  border-color: var(--primary);
+  font-weight: 700;
+}
+[data-theme='dark'] .battery-filters button[aria-pressed='true'] {
+  color: #10292f;
+}
+
+.hold-clock {
+  display: grid;
+  gap: 6px;
+  margin: 16px 0;
+  padding: 16px 20px;
+  border-radius: 16px;
+  background: var(--tint);
+}
+.hold-clock span {
+  font-size: 0.875rem;
+}
+.hold-clock strong {
+  font-size: 2rem;
+  line-height: 1.2;
+}
