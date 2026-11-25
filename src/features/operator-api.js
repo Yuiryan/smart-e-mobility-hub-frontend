@@ -286,7 +286,9 @@ export function mountOperatorApi(root, path) {
                 select(
                   'action',
                   t('Hành động', 'Action'),
-                  r.allowedActions.map((a) => [a, a]),
+                  r.allowedActions
+                    .filter((a) => a !== 'LOCK' && a !== 'UNLOCK')
+                    .map((a) => [a, a]),
                 ) +
                   field('reason', t('Lý do can thiệp', 'Reason')) +
                   field(
@@ -628,9 +630,14 @@ export function mountOperatorApi(root, path) {
       if (kind === 'dispatch')
         return api.dispatch({ ...v, vehicleIds: f.getAll('vehicleIds') });
       if (kind === 'incident') return api.createIncident(v);
+      if (
+        kind === 'intervene' &&
+        (v.action === 'LOCK' ||
+          v.action === 'UNLOCK' ||
+          !data.resource.allowedActions.includes(v.action))
+      )
+        throw new Error('Action not permitted');
       if (kind === 'intervene') {
-        if (!data.resource.allowedActions.includes(v.action))
-          throw new Error('Action not permitted');
         return api.intervene({
           resourceType: state.resourceType,
           resourceId: state.resourceId,

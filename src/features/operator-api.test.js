@@ -76,3 +76,30 @@ it('does not overwrite another page with a late read response', async () => {
   await Promise.resolve();
   expect(document.querySelector('#test-root').textContent).toBe('Next page');
 });
+it('hides LOCK and UNLOCK from vehicle intervention action choices', async () => {
+  vi.spyOn(operatorApi, 'audit').mockResolvedValue({ items: [] });
+  vi.spyOn(operatorApi, 'resource').mockResolvedValue({
+    vehicleId: 'bike_008',
+    status: 'AVAILABLE',
+    connectionStatus: 'ONLINE',
+    version: 22,
+    allowedActions: ['UNLOCK', 'LOCK', 'MARK_MAINTENANCE', 'SET_BATTERY'],
+  });
+  dispose = mountOperatorApi(
+    document.querySelector('#test-root'),
+    '/operator/interventions',
+  );
+  await vi.waitFor(() =>
+    expect(document.querySelector('[data-live-form="resource"]')).not.toBeNull(),
+  );
+  const form = document.querySelector('[data-live-form="resource"]');
+  form.querySelector('[name="resourceId"]').value = 'bike_008';
+  form.dispatchEvent(new Event('submit', { bubbles: true, cancelable: true }));
+  await vi.waitFor(() =>
+    expect(document.querySelector('[data-live-form="intervene"]')).not.toBeNull(),
+  );
+  const actions = [
+    ...document.querySelectorAll('[name="action"] option'),
+  ].map((o) => o.value);
+  expect(actions).toEqual(['MARK_MAINTENANCE', 'SET_BATTERY']);
+});
