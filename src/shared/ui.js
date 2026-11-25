@@ -37,7 +37,11 @@ export function applyPreferences() {
 }
 export const msg = (code) => t(...(messages[code] || messages.UNKNOWN));
 export const date = (value) =>
-  Number.isFinite(value)
+  (
+    typeof value === 'string'
+      ? Number.isFinite(Date.parse(value))
+      : Number.isFinite(value)
+  )
     ? new Date(value).toLocaleString(prefs.locale === 'vi' ? 'vi-VN' : 'en-GB')
     : '—';
 export const localDate = (value) => {

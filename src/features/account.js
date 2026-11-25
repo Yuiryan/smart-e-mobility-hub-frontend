@@ -37,7 +37,7 @@ export function accountPage(data, mode = 'login', flow = {}) {
       );
     if (mode === 'security')
       return (
-        heading('Đăng nhập và bảo mật', 'Login and security') +
+        heading('Đổi mật khẩu', 'Change password') +
         link(
           '/account/password',
           t('Đổi mật khẩu', 'Change password'),
@@ -58,13 +58,8 @@ export function accountPage(data, mode = 'login', flow = {}) {
         t('Kiểm soát quyền riêng tư', 'Privacy controls'),
       ],
       ['/account/country', 'pin', t('Quốc gia', 'Country')],
-      ['/settings', 'pin', t('Ngôn ngữ', 'Language')],
-      ['/settings', 'charge', t('Giao diện', 'Appearance')],
-      [
-        '/account/security',
-        'qr',
-        t('Đăng nhập và bảo mật', 'Login and security'),
-      ],
+      ['/settings', 'pin', t('Ngôn ngữ & Giao diện', 'Language & appearance')],
+      ['/account/password', 'qr', t('Đổi mật khẩu', 'Change password')],
     ];
     return (
       mobileHeading(t('Tài khoản', 'Account')) +
