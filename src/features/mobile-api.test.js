@@ -212,6 +212,7 @@ it('selects a Hub with no vehicles and returns to the loaded Hub list', async ()
 it('returns the remembered vehicle without asking the student for a ride ID', () => {
   mobileApi.session = { user: { role: 'STUDENT' } };
   mobileApi.ride = { rideId: 'ride-1', vehicleId: 'bike-7', status: 'ACTIVE' };
+  vi.spyOn(mobileApi, 'hubCatalog').mockResolvedValue([]);
   document.body.innerHTML = '<div id="root"></div>';
   dispose = mountMobileApi(document.querySelector('#root'), '/student/return');
   expect(document.body.textContent).toContain('bike-7');
@@ -223,4 +224,127 @@ it('returns the remembered vehicle without asking the student for a ride ID', ()
   expect(
     document.querySelector('a[href="#/student/notifications"]'),
   ).toBeNull();
+});
+
+it.each([
+  ['/student/parking', 'parking'],
+  ['/student/return', 'return'],
+])(
+  'loads real parking spaces for %s without replacing search results',
+  async (path, formType) => {
+    mobileApi.session = { user: { role: 'STUDENT' } };
+    mobileApi.ride = {
+      rideId: 'ride-1',
+      vehicleId: 'bike-7',
+      status: 'ACTIVE',
+    };
+    const searchResults = [
+      { hubId: 'nearby', hubName: 'Nearby', vehicles: [] },
+    ];
+    mobileApi.hubs = searchResults;
+    vi.spyOn(mobileApi, 'hubCatalog').mockResolvedValue([
+      { hubId: 'h1', hubName: 'Hub 1' },
+    ]);
+    vi.spyOn(mobileApi, 'hubSpaces').mockResolvedValue([
+      { spaceId: 'A-01', status: 'AVAILABLE', blocked: false },
+      { spaceId: 'A-02', status: 'OCCUPIED', blocked: false },
+    ]);
+    document.body.innerHTML = '<div id="root"></div>';
+    dispose = mountMobileApi(document.querySelector('#root'), path);
+    await vi.waitFor(() =>
+      expect(document.querySelector('[data-parking-hub="h1"]')).not.toBeNull(),
+    );
+    document.querySelector('[data-parking-hub="h1"]').click();
+    await vi.waitFor(() =>
+      expect(document.querySelector(`[data-api="${formType}"]`)).not.toBeNull(),
+    );
+    const form = document.querySelector(`[data-api="${formType}"]`);
+    expect(form.querySelector('[value="A-01"]').disabled).toBe(false);
+    expect(form.querySelector('[value="A-02"]').disabled).toBe(true);
+    if (formType === 'return') {
+      expect(form.querySelector('[name="rideId"]').value).toBe('ride-1');
+      expect(document.body.textContent).toContain('bike-7');
+      expect(document.querySelector('[data-api="parking"]')).toBeNull();
+    }
+    expect(mobileApi.hubs).toBe(searchResults);
+  },
+);
+
+it('shows unavailable spaces without allowing a reservation', async () => {
+  mobileApi.session = { user: { role: 'STUDENT' } };
+  vi.spyOn(mobileApi, 'hubCatalog').mockResolvedValue([
+    { hubId: 'h1', hubName: 'Hub 1' },
+  ]);
+  vi.spyOn(mobileApi, 'hubSpaces').mockResolvedValue([
+    { spaceId: 'A-01', status: 'OCCUPIED', blocked: false },
+  ]);
+  document.body.innerHTML = '<div id="root"></div>';
+  dispose = mountMobileApi(document.querySelector('#root'), '/student/parking');
+  await vi.waitFor(() => document.querySelector('[data-parking-hub="h1"]'));
+  document.querySelector('[data-parking-hub="h1"]').click();
+  await vi.waitFor(() =>
+    expect(document.querySelector('[value="A-01"]')?.disabled).toBe(true),
+  );
+  expect(document.querySelector('[data-api="parking"]')).toBeNull();
+});
+
+it('allows retrying a failed parking Hub catalog request', async () => {
+  mobileApi.session = { user: { role: 'STUDENT' } };
+  vi.spyOn(mobileApi, 'hubCatalog')
+    .mockRejectedValueOnce(new Error('Hub catalog unavailable'))
+    .mockResolvedValueOnce([{ hubId: 'h1', hubName: 'Hub 1' }]);
+  document.body.innerHTML = '<div id="root"></div>';
+  dispose = mountMobileApi(document.querySelector('#root'), '/student/parking');
+  await vi.waitFor(() =>
+    expect(document.querySelector('#api-feedback').textContent).toContain(
+      'Hub catalog unavailable',
+    ),
+  );
+  document.querySelector('[data-api-action="reload-parking"]').click();
+  await vi.waitFor(() =>
+    expect(document.querySelector('[data-parking-hub="h1"]')).not.toBeNull(),
+  );
+});
+
+it('loads backend Hub choices for charging instead of requiring a typed Hub ID', async () => {
+  mobileApi.session = { user: { role: 'STUDENT' } };
+  const catalog = vi
+    .spyOn(mobileApi, 'hubCatalog')
+    .mockResolvedValue([{ hubId: 'h1', hubName: 'Hub KTX B' }]);
+  document.body.innerHTML = '<div id="root"></div>';
+  dispose = mountMobileApi(
+    document.querySelector('#root'),
+    '/student/charging',
+  );
+  await vi.waitFor(() =>
+    expect(document.querySelector('select[name="hubId"]')).not.toBeNull(),
+  );
+  expect(catalog).toHaveBeenCalledWith(expect.any(AbortSignal));
+  expect(
+    document.querySelector('select[name="hubId"] option[value="h1"]')
+      .textContent,
+  ).toBe('Hub KTX B');
+  expect(document.querySelector('input[name="hubId"]')).toBeNull();
+});
+it('shows backend ISO expiry and rental times for parking receipts', () => {
+  mobileApi.session = { user: { role: 'STUDENT' } };
+  mobileApi.parking = [
+    {
+      parkingReservationId: 'p1',
+      spaceId: 's1',
+      status: 'ACTIVE',
+      startsAt: '2026-11-25T16:00:00Z',
+      endsAt: '2026-11-25T17:00:00Z',
+      expiresAt: '2026-11-25T16:15:00Z',
+    },
+  ];
+  document.body.innerHTML = '<div id="root"></div>';
+  dispose = mountMobileApi(
+    document.querySelector('#root'),
+    '/student/reservations',
+  );
+  const receipt = document.querySelector('.panel');
+  expect(receipt.textContent).not.toContain('—');
+  expect(receipt.textContent).toContain('2026');
+  expect(receipt.textContent).toContain('→');
 });

@@ -22,7 +22,7 @@ Lệnh kiểm tra định dạng, lint, test và build. Không tự triển khai
 ## Luồng sinh viên
 
 - Đặt xe → lưu biên nhận và đúng mã xe → quét QR nhận xe → chờ backend/thiết bị xác nhận → quay lại Trả xe → chọn Hub và ô đỗ.
-- Đặt chỗ đỗ hiển thị các ô lấy từ API; ô không khả dụng không chọn được.
+- Đặt chỗ đỗ và trả xe tải danh sách Hub, sau đó hiển thị các ô lấy từ API; ô không khả dụng không chọn được. Nếu tải danh sách thất bại, người dùng có thể thử lại.
 - Tài khoản có thông tin chung, quyền riêng tư, quốc gia, ngôn ngữ, giao diện và bảo mật. Premium chỉ là thông tin thiết kế, chưa có dịch vụ đăng ký.
 - Đã bỏ thanh giờ/pin giả, mục thông báo sinh viên và công cụ API ở góc màn hình.
 
