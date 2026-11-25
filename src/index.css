@@ -1011,3 +1011,29 @@ main {
   padding: 14px 0;
   border-top: 1px solid var(--border);
 }
+.hub-browser {
+  display: grid;
+  gap: 20px;
+}
+.hub-browser > .panel,
+.hub-browser > .auth-form,
+.hub-browser > .available-vehicles,
+.hub-browser > button {
+  margin: 0;
+}
+.hub-browser .hub-list {
+  gap: 16px;
+}
+.hub-browser .hub-row {
+  gap: 14px;
+  padding: 20px;
+}
+.hub-browser .hub-row > span {
+  gap: 8px;
+}
+.hub-browser .hub-row > .forward {
+  transform: rotate(180deg);
+}
+.hub-browser .panel > .auth-form {
+  margin-top: 20px;
+}

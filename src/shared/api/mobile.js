@@ -18,7 +18,11 @@ export function rentalWindow(start, end) {
 }
 // Session, receipts and idempotency keys deliberately live only in memory.
 export class MobileApi {
-  constructor(send = request) {
+  constructor(
+    send = request,
+    authProfile = import.meta.env.VITE_AUTH_PROFILE || 'contract',
+  ) {
+    this.authProfile = authProfile;
     this.send = send;
     this.clear();
   }
@@ -58,12 +62,14 @@ export class MobileApi {
       throw error;
     }
   }
-  async login(email, password) {
-    const data = await this.call(
-      '/auth/login',
-      { email, password },
-      { auth: false },
-    );
+  async login(email, password, role) {
+    const payload = { email, password };
+    if (this.authProfile === 'backend') {
+      if (!['STUDENT', 'OPERATOR'].includes(role))
+        throw new Error('Select an account role');
+      payload.role = role;
+    }
+    const data = await this.call('/auth/login', payload, { auth: false });
     if (
       !data?.sessionToken ||
       data.tokenType !== 'Bearer' ||
@@ -79,12 +85,11 @@ export class MobileApi {
     };
     return this.user;
   }
-  register(studentId, email, password) {
-    return this.call(
-      '/auth/register',
-      { studentId, email, password },
-      { auth: false },
-    );
+  register(studentId, email, password, fullName) {
+    const payload = { studentId, email, password };
+    if (this.authProfile === 'backend')
+      payload.fullName = required(fullName, 'fullName');
+    return this.call('/auth/register', payload, { auth: false });
   }
   async logout() {
     try {
@@ -145,6 +150,34 @@ export class MobileApi {
     });
     this.clear();
   }
+  async discoverHubs({ latitude, longitude }, signal) {
+    // The search endpoint caps vehicle discovery at 50 km; catalog keeps all Hubs visible.
+    const [catalog, nearby] = await Promise.all([
+      this.call('/hubs', undefined, { signal }),
+      this.call(
+        '/search/hubs',
+        searchPayload({ latitude, longitude, radiusKm: 50 }),
+        { auth: false, signal },
+      ),
+    ]);
+    if (!Array.isArray(catalog?.items)) throw new Error('Invalid Hub catalog');
+    const matches = validateSearchResponse(nearby);
+    const hubs = catalog.items
+      .map((h) => {
+        if (typeof h.hubId !== 'string' || typeof h.hubName !== 'string')
+          throw new Error('Invalid Hub catalog');
+        return {
+          ...h,
+          distanceKm: null,
+          availableVehicleCount: null,
+          vehicles: [],
+          ...matches.find((m) => m.hubId === h.hubId),
+        };
+      })
+      .sort((a, b) => (a.distanceKm ?? Infinity) - (b.distanceKm ?? Infinity));
+    if (!signal?.aborted) this.hubs = hubs;
+    return hubs;
+  }
   async search(values, signal) {
     const hubs = validateSearchResponse(
       await this.call('/search/hubs', searchPayload(values), {
@@ -181,6 +214,25 @@ export class MobileApi {
     await this.call(`/reservations/${encodeURIComponent(id)}/cancel`, {});
     const receipt = this.reservations.find((r) => r.reservationId === id);
     if (receipt) receipt.status = 'CANCELLED';
+  }
+  async hubSpaces(hubId, signal) {
+    const data = await this.call(
+      '/hubs/' + encodeURIComponent(required(hubId, 'hubId')) + '/spaces',
+      undefined,
+      { signal },
+    );
+    if (
+      !Array.isArray(data?.items) ||
+      data.items.some(
+        (s) =>
+          typeof s.spaceId !== 'string' ||
+          s.hubId !== hubId ||
+          typeof s.status !== 'string' ||
+          typeof s.blocked !== 'boolean',
+      )
+    )
+      throw new Error('Invalid parking spaces response');
+    return data.items;
   }
   async reserveParking(hubId, spaceId, start, end) {
     const data = await this.call('/parking-reservations', {

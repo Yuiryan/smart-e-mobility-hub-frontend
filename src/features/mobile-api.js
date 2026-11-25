@@ -26,12 +26,6 @@ import { accountPage } from './account.js';
 import { hubsPage } from './student.js';
 import { scanCamera, scanFile, stopScanner } from '../shared/scanner.js';
 
-let searchValues = {
-  latitude: '',
-  longitude: '',
-  radiusKm: '3',
-  reference: 'origin',
-};
 let selected = null;
 const go = (path) => {
   location.hash = path;
@@ -63,10 +57,53 @@ function vehicleList() {
     )
   );
 }
-function searchForm() {
+function hubSummary(h) {
+  return `<p>${h.distanceKm == null ? t('Chưa có khoảng cách', 'Distance unavailable') : e(h.distanceKm.toFixed(2)) + ' km'}${h.freeSpaceCount == null ? '' : ' · ' + e(h.freeSpaceCount) + t(' chỗ đỗ trống', ' free parking spaces')}</p>`;
+}
+function searchForm(
+  loaded = false,
+  selectedHubId = null,
+  showVehicles = false,
+  spaces = null,
+) {
+  const hub = loaded && api.hubs.find((h) => h.hubId === selectedHubId);
+  if (hub)
+    return (
+      mobileHeading(t('Thông tin Mobility Hub', 'Mobility Hub details')) +
+      `<section class="panel"><h2>${icon('pin')} ${e(hub.hubName)}</h2>${hubSummary(hub)}${hub.capacity == null ? '' : `<p>${t('Sức chứa', 'Capacity')}: ${e(hub.capacity)}</p>`}<p>${hub.availableVehicleCount == null ? t('Chưa có dữ liệu xe tại Hub này.', 'Vehicle availability is not available for this Hub.') : e(hub.availableVehicleCount) + t(' xe khả dụng', ' available vehicles')}</p></section>
+    <button class="primary full" data-api-action="hub-parking">${t('Đặt chỗ đỗ tại Hub này', 'Book parking at this Hub')}</button>
+    ${spaces === null ? '' : parkingAtHub(hub, spaces)}
+    <button class="secondary full" data-api-action="hub-vehicles">${t('Xem xe tại Hub này', 'View vehicles at this Hub')}</button>
+    ${showVehicles ? `<section class="available-vehicles" aria-live="polite">${hub.vehicles.length ? hub.vehicles.map((v) => link(idLink(v.vehicleId), `${v.vehicleId} · ${v.batteryPct}%`, 'available-vehicle')).join('') : notice(hub.availableVehicleCount === 0 ? 'Hub này hiện không có xe khả dụng. Bạn vẫn có thể xem thông tin Hub hoặc chọn Hub khác.' : 'Chưa có dữ liệu xe khả dụng tại Hub này.', hub.availableVehicleCount === 0 ? 'This Hub currently has no available vehicles. You can still view its information or choose another Hub.' : 'Vehicle availability is not available for this Hub.')}</section>` : ''}
+    <button class="secondary full" data-api-action="hub-list">${t('Chọn Hub khác', 'Choose another Hub')}</button>`
+    );
   return (
     mobileHeading(t('Chọn Mobility Hub', 'Choose a Mobility Hub')) +
-    `<form data-api="search" class="auth-form">${notice('Chọn vị trí hoặc nhập tọa độ để tìm xe từ backend.', 'Choose your location or enter coordinates to search the backend.')}${field('latitude', t('Vĩ độ', 'Latitude'), searchValues.latitude, 'number', 'step="any" min="-90" max="90"')}${field('longitude', t('Kinh độ', 'Longitude'), searchValues.longitude, 'number', 'step="any" min="-180" max="180"')}${field('radiusKm', t('Bán kính (km)', 'Radius (km)'), searchValues.radiusKm, 'number', 'step="any" min="0.01" max="50"')}<button type="button" class="secondary full" data-api-action="gps">${t('Dùng vị trí của tôi', 'Use my location')}</button><button class="primary full">${t('Tìm Hub', 'Search Hubs')}</button></form><div class="hub-list">${api.hubs.map((h) => `<section class="panel"><h2>${e(h.hubName)}</h2><p>${h.availableVehicleCount} ${t('xe khả dụng', 'available vehicles')} · ${e(h.distanceKm)} km</p>${h.vehicles.map((v) => link(idLink(v.vehicleId), `${v.vehicleId} · ${v.batteryPct}%`, 'vehicle-option')).join('')}</section>`).join('')}</div>`
+    `<section class="auth-form"><p>${loaded ? t('Chọn một Hub để xem thông tin. Các Hub có khoảng cách được sắp xếp gần trước.', 'Select a Hub to view its information. Hubs with known distances are sorted nearest first.') : t('Cho phép truy cập vị trí để xem các Mobility Hub gần bạn.', 'Allow location access to view Mobility Hubs near you.')}</p><button class="primary full" data-api-action="gps">${icon('pin')}${loaded ? t('Cập nhật vị trí của tôi', 'Update my location') : t('Dùng vị trí của tôi', 'Use my location')}</button></section>` +
+    (loaded
+      ? `<div class="hub-list">${api.hubs.map((h) => `<button type="button" class="hub-row" data-select-hub="${e(h.hubId)}">${icon('pin')}<span><strong>${e(h.hubName)}</strong><span>${h.distanceKm == null ? t('Chưa có khoảng cách', 'Distance unavailable') : e(h.distanceKm.toFixed(2)) + ' km'}${h.freeSpaceCount == null ? '' : ' · ' + e(h.freeSpaceCount) + t(' chỗ đỗ trống', ' free parking spaces')}</span><small>${t('Xem thông tin Hub', 'View Hub details')}</small></span>${icon('back', 'forward')}</button>`).join('')}</div>`
+      : '')
+  );
+}
+function parkingAtHub(hub, spaces) {
+  const available = spaces.filter(
+    (s) => s.status === 'AVAILABLE' && !s.blocked && !s.pendingOperationId,
+  );
+  if (!available.length)
+    return notice(
+      'Hiện không còn chỗ đỗ khả dụng tại Hub này. Hãy cập nhật hoặc chọn Hub khác.',
+      'No parking spaces are currently available at this Hub. Refresh or choose another Hub.',
+    );
+  const options = available
+    .map((s) => `<option value="${e(s.spaceId)}">${e(s.spaceId)}</option>`)
+    .join('');
+  const destination = `<input type="hidden" name="hubId" value="${e(hub.hubId)}"><label>${t('Chọn chỗ đỗ', 'Choose a parking space')}<select name="spaceId" required>${options}</select></label>`;
+  return (
+    `<section class="panel"><h2>${t('Đặt chỗ đỗ', 'Book parking')}</h2><form data-api="parking" class="auth-form">${destination}${times()}<button class="primary full">${t('Xác nhận đặt chỗ đỗ', 'Confirm parking reservation')}</button></form></section>` +
+    (api.ride?.status === 'ACTIVE'
+      ? `<section class="panel"><h2>${t('Trả xe đang sử dụng tại Hub này', 'Return your current vehicle here')}</h2><form data-api="return" class="auth-form"><input type="hidden" name="rideId" value="${e(api.ride.rideId)}">${destination}<button class="primary full">${t('Xác nhận trả xe', 'Confirm return')}</button></form></section>`
+      : '') +
+    commandPanel()
   );
 }
 function detailsPage(v) {
@@ -108,6 +145,10 @@ function destinationFields() {
   );
 }
 export function mountMobileApi(root, path) {
+  let locationLoaded = false;
+  let selectedHubId = null;
+  let showHubVehicles = false;
+  let hubParkingSpaces = null;
   let disposed = false,
     busy = false,
     timer,
@@ -150,12 +191,12 @@ export function mountMobileApi(root, path) {
         : ''
     }</div><aside class="preview-tools"><span>API</span>${link('/settings', t('Giao diện / ngôn ngữ', 'Appearance / language'))}</aside>`;
   }
-  function message(text) {
+  function message(text, isError = true) {
     if (disposed) return;
     const box = root.querySelector('#api-feedback');
     if (box) {
       box.hidden = false;
-      box.className = 'feedback error';
+      box.className = isError ? 'feedback error' : 'feedback';
       box.textContent = text;
       box.focus();
     }
@@ -171,7 +212,12 @@ export function mountMobileApi(root, path) {
         'Không kết nối được backend hoặc quá thời gian chờ. Kiểm tra server và thử lại.',
         'Backend unavailable or timed out. Check the server and retry.',
       );
-    return `${error.code ? error.code + ': ' : ''}${error.message}${error.requestId ? ' (' + error.requestId + ')' : ''}`;
+    const details = Array.isArray(error.details)
+      ? error.details
+          .map((d) => `${d.field || ''}: ${d.issue || d.message || ''}`)
+          .join('; ')
+      : '';
+    return `${error.code ? error.code + ': ' : ''}${error.message}${details ? ' — ' + details : ''}${error.requestId ? ' (' + error.requestId + ')' : ''}`;
   }
   async function run(action) {
     if (busy || disposed) return;
@@ -190,6 +236,8 @@ export function mountMobileApi(root, path) {
       }
     } finally {
       busy = false;
+      const locationButton = root.querySelector('[data-api-action="gps"]');
+      if (locationButton) locationButton.disabled = false;
       buttons.forEach((b, i) => {
         if (b.isConnected) b.disabled = disabled[i];
       });
@@ -259,7 +307,9 @@ export function mountMobileApi(root, path) {
       return;
     }
     if (path === '/student/search') {
-      draw(searchForm());
+      draw(
+        `<div class="hub-browser">${searchForm(locationLoaded, selectedHubId, showHubVehicles, hubParkingSpaces)}</div>`,
+      );
       return;
     }
     if (path === '/student/vehicles') {
@@ -359,7 +409,7 @@ export function mountMobileApi(root, path) {
     const f = new FormData(form);
     await run(async () => {
       if (kind === 'login') {
-        await api.login(f.get('email'), f.get('password'));
+        await api.login(f.get('email'), f.get('password'), accountFlow.role);
         if (!disposed)
           go(
             api.user?.role === 'OPERATOR'
@@ -387,16 +437,9 @@ export function mountMobileApi(root, path) {
           f.get('studentId'),
           f.get('email'),
           f.get('password'),
+          f.get('name'),
         );
         if (!disposed) go('/account/registered');
-      } else if (kind === 'search') {
-        searchValues = { ...searchValues, ...Object.fromEntries(f) };
-        await api.search(searchValues, controller.signal);
-        if (!disposed) {
-          render();
-          if (!api.hubs.length)
-            message(t('Không có Hub phù hợp.', 'No matching Hubs.'));
-        }
       } else {
         if (
           !(await confirmAction(
@@ -465,6 +508,36 @@ export function mountMobileApi(root, path) {
   function click(event) {
     const button = event.target.closest('button');
     if (!button) return;
+    if (button.dataset.apiAction === 'hub-parking') {
+      run(async () => {
+        const hubId = selectedHubId;
+        const spaces = await api.hubSpaces(hubId, controller.signal);
+        if (!disposed && selectedHubId === hubId) {
+          hubParkingSpaces = spaces;
+          render();
+        }
+      });
+      return;
+    }
+    if (button.hasAttribute('data-select-hub')) {
+      if (busy || !locationLoaded) return;
+      selectedHubId = button.dataset.selectHub;
+      hubParkingSpaces = null;
+      showHubVehicles = false;
+      render();
+      return;
+    }
+    if (button.dataset.apiAction === 'hub-list') {
+      selectedHubId = null;
+      showHubVehicles = false;
+      render();
+      return;
+    }
+    if (button.dataset.apiAction === 'hub-vehicles') {
+      showHubVehicles = true;
+      render();
+      return;
+    }
     if (
       button.hasAttribute('data-op-theme') ||
       button.hasAttribute('data-op-locale')
@@ -515,28 +588,59 @@ export function mountMobileApi(root, path) {
         if (!disposed) render();
       });
     if (action === 'camera') run(() => scanCamera(applyQr));
-    if (action === 'gps') {
-      if (!navigator.geolocation) {
-        message(t('Trình duyệt không hỗ trợ GPS.', 'GPS is not supported.'));
-        return;
-      }
-      navigator.geolocation.getCurrentPosition(
-        (pos) => {
-          if (disposed) return;
-          searchValues.latitude = String(pos.coords.latitude);
-          searchValues.longitude = String(pos.coords.longitude);
-          render();
-        },
-        () =>
-          message(
+    if (action === 'gps')
+      run(async () => {
+        locationLoaded = false;
+        selectedHubId = null;
+        showHubVehicles = false;
+        api.hubs = [];
+        render();
+        const locationButton = root.querySelector('[data-api-action="gps"]');
+        if (locationButton) locationButton.disabled = true;
+        if (!api.user) {
+          go('/account/student');
+          return;
+        }
+        if (!navigator.geolocation)
+          throw new Error(
             t(
-              'Không lấy được vị trí. Hãy nhập tọa độ.',
-              'Location unavailable. Enter coordinates.',
+              'Trình duyệt không hỗ trợ vị trí. Hãy dùng trình duyệt hỗ trợ định vị.',
+              'This browser does not support location. Use a location-capable browser.',
             ),
+          );
+        message(t('Đang lấy vị trí của bạn…', 'Getting your location…'), false);
+        const position = await new Promise((resolve, reject) =>
+          navigator.geolocation.getCurrentPosition(
+            resolve,
+            (error) =>
+              reject(
+                new Error(
+                  error.code === 1
+                    ? t(
+                        'Bạn cần cho phép vị trí để tìm Hub. Mở quyền của trang cạnh thanh địa chỉ, bật Vị trí rồi thử lại.',
+                        'Location permission is required. Open site permissions next to the address bar, allow Location and try again.',
+                      )
+                    : t(
+                        'Chưa lấy được vị trí. Hãy bật dịch vụ vị trí của thiết bị và thử lại.',
+                        'Location unavailable. Enable device location services and try again.',
+                      ),
+                ),
+              ),
+            { enableHighAccuracy: true, timeout: 15000, maximumAge: 0 },
           ),
-      );
-    }
+        );
+        if (disposed) return;
+        message(t('Đang tải danh sách Hub…', 'Loading Mobility Hubs…'), false);
+        await api.discoverHubs(position.coords, controller.signal);
+        if (!disposed) {
+          locationLoaded = true;
+          render();
+          if (!api.hubs.length)
+            message(t('Hệ thống chưa có Hub.', 'No Hubs are registered yet.'));
+        }
+      });
   }
+
   function change(event) {
     const el = event.target;
     if (el.dataset.apiPref) {
@@ -556,7 +660,7 @@ export function mountMobileApi(root, path) {
       api.command?.state === 'PENDING' &&
       api.command.operationId &&
       polls < 30 &&
-      ['/student/pickup', '/student/return'].includes(path)
+      ['/student/pickup', '/student/return', '/student/search'].includes(path)
     ) {
       polls++;
       run(async () => {

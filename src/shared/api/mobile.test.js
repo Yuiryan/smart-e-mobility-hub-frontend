@@ -10,7 +10,7 @@ const session = () => ({
 });
 beforeEach(() => {
   send = vi.fn();
-  api = new MobileApi(send);
+  api = new MobileApi(send, 'contract');
   api.session = session();
 });
 afterEach(() => vi.restoreAllMocks());
@@ -174,4 +174,87 @@ it('uses the backend recovery grant only in memory and validates confirmation', 
   });
   expect(api.recovery).toBeNull();
   expect({ ...localStorage }).toEqual(before);
+});
+
+it('sends the running backend DTO fields when the backend profile is selected', async () => {
+  const backend = new MobileApi(send, 'backend');
+  send
+    .mockResolvedValueOnce(session())
+    .mockResolvedValueOnce({ accountId: 'new' });
+  await backend.login('user@example.com', 'secret', 'STUDENT');
+  expect(JSON.parse(send.mock.calls[0][1].body)).toEqual({
+    email: 'user@example.com',
+    password: 'secret',
+    role: 'STUDENT',
+  });
+  await backend.register('123', 'user@example.com', 'secret', 'Full Name');
+  expect(JSON.parse(send.mock.calls[1][1].body)).toEqual({
+    studentId: '123',
+    email: 'user@example.com',
+    password: 'secret',
+    fullName: 'Full Name',
+  });
+});
+it('validates backend-only required fields before sending', async () => {
+  const backend = new MobileApi(send, 'backend');
+  await expect(backend.login('user@example.com', 'secret')).rejects.toThrow(
+    'role',
+  );
+  expect(() =>
+    backend.register('123', 'user@example.com', 'secret', ''),
+  ).toThrow('fullName');
+  expect(send).not.toHaveBeenCalled();
+});
+it('keeps all catalog Hubs and sorts known distances without inventing remote availability', async () => {
+  send
+    .mockResolvedValueOnce({
+      items: [
+        { hubId: 'far', hubName: 'Far Hub' },
+        { hubId: 'near', hubName: 'Near Hub', freeSpaceCount: 4 },
+      ],
+    })
+    .mockResolvedValueOnce({
+      hubs: [
+        {
+          hubId: 'near',
+          hubName: 'Near Hub',
+          distanceKm: 1,
+          availableVehicleCount: 0,
+          telemetryStatus: 'FRESH',
+          vehicles: [],
+        },
+      ],
+    });
+  await api.discoverHubs({ latitude: 10, longitude: 106 });
+  expect(api.hubs.map((h) => h.hubId)).toEqual(['near', 'far']);
+  expect(api.hubs[1]).toMatchObject({
+    distanceKm: null,
+    availableVehicleCount: null,
+    vehicles: [],
+  });
+  expect(send.mock.calls[0][0]).toBe('/hubs');
+  expect(send.mock.calls[0][1].headers.Authorization).toBe('Bearer test-token');
+  expect(JSON.parse(send.mock.calls[1][1].body)).toEqual({
+    origin: { latitude: 10, longitude: 106 },
+    destination: null,
+    radiusKm: 50,
+  });
+});
+it('loads real parking spaces for the selected Hub and rejects mismatched results', async () => {
+  send.mockResolvedValueOnce({
+    items: [
+      { spaceId: 'A-01', hubId: 'hub/a', status: 'AVAILABLE', blocked: false },
+    ],
+  });
+  expect(await api.hubSpaces('hub/a')).toHaveLength(1);
+  expect(send.mock.calls[0][0]).toBe('/hubs/hub%2Fa/spaces');
+  expect(send.mock.calls[0][1].headers.Authorization).toBe('Bearer test-token');
+  send.mockResolvedValueOnce({
+    items: [
+      { spaceId: 'B-01', hubId: 'other', status: 'AVAILABLE', blocked: false },
+    ],
+  });
+  await expect(api.hubSpaces('hub/a')).rejects.toThrow(
+    'Invalid parking spaces',
+  );
 });
