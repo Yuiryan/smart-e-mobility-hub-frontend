@@ -1,3 +1,9 @@
+import {
+  operatorAuthShell,
+  operatorShell,
+  desktopWelcome,
+} from './operator-design.js';
+const accountFlow = { role: 'STUDENT' };
 import { mobileApi as api } from '../shared/api/mobile.js';
 import {
   e,
@@ -110,6 +116,24 @@ export function mountMobileApi(root, path) {
   applyPreferences();
   function draw(content) {
     if (disposed) return;
+    if (path === '/welcome/pc') {
+      root.innerHTML = desktopWelcome();
+      return;
+    }
+    if (
+      path.startsWith('/account') &&
+      (api.user?.role === 'OPERATOR' || accountFlow.role === 'OPERATOR')
+    ) {
+      const feedback =
+        '<div id="api-feedback" role="alert" tabindex="-1" hidden></div>';
+      root.innerHTML = api.user
+        ? operatorShell(feedback + content, path).replace(
+            'DEMO · ' + t('Dữ liệu mô phỏng', 'Simulated data'),
+            'API',
+          )
+        : operatorAuthShell(feedback + content);
+      return;
+    }
     root.innerHTML = `<div class="app-frame student-frame"><div class="design-status" aria-hidden="true"><span>18:36</span><span>▣ Wi-Fi　67% ⌖</span></div><main><div id="api-feedback" role="alert" tabindex="-1" hidden></div>${content}</main>${
       api.user
         ? `<nav class="bottom-nav" aria-label="${t('Điều hướng chính', 'Main navigation')}">${[
@@ -173,7 +197,7 @@ export function mountMobileApi(root, path) {
   }
   async function render() {
     if (disposed) return;
-    if (path === '/') {
+    if (path === '/' || path === '/welcome/pc') {
       draw(welcomePage());
       return;
     }
@@ -186,17 +210,20 @@ export function mountMobileApi(root, path) {
     }
     if (path.startsWith('/account')) {
       const mode = path.split('/')[2] || 'login';
-      if (['forgot', 'verify', 'reset', 'password'].includes(mode)) {
-        draw(
-          mobileHeading(t('Tài khoản', 'Account'), '/account') +
-            notice(
-              'Backend chưa cung cấp API cho chức năng này.',
-              'The backend does not provide an API for this feature yet.',
-            ),
+      if (mode === 'operator') accountFlow.role = 'OPERATOR';
+      if (mode === 'student') accountFlow.role = 'STUDENT';
+      let content = accountPage({ user: api.user }, mode, accountFlow);
+      if (mode === 'reset')
+        content = content.replace(
+          '<button class="primary full">',
+          field(
+            'confirmPassword',
+            t('Nhập lại mật khẩu', 'Confirm password'),
+            '',
+            'password',
+          ) + '<button class="primary full">',
         );
-        return;
-      }
-      draw(accountPage({ user: api.user }, mode));
+      draw(content);
       return;
     }
     const publicRoute =
@@ -333,7 +360,28 @@ export function mountMobileApi(root, path) {
     await run(async () => {
       if (kind === 'login') {
         await api.login(f.get('email'), f.get('password'));
-        if (!disposed) go('/student/hubs');
+        if (!disposed)
+          go(
+            api.user?.role === 'OPERATOR'
+              ? '/operator/overview'
+              : '/student/hubs',
+          );
+      } else if (kind === 'forgot') {
+        await api.requestRecovery(f.get('email'));
+        if (!disposed) go('/account/verify');
+      } else if (kind === 'verify') {
+        await api.verifyRecovery(f.get('code'));
+        if (!disposed) go('/account/reset');
+      } else if (kind === 'reset') {
+        await api.resetPassword(f.get('password'), f.get('confirmPassword'));
+        if (!disposed) go('/account/changed');
+      } else if (kind === 'password') {
+        await api.changePassword(
+          f.get('current'),
+          f.get('password'),
+          f.get('confirm'),
+        );
+        if (!disposed) go('/account/changed');
       } else if (kind === 'register') {
         await api.register(
           f.get('studentId'),
@@ -417,6 +465,24 @@ export function mountMobileApi(root, path) {
   function click(event) {
     const button = event.target.closest('button');
     if (!button) return;
+    if (
+      button.hasAttribute('data-op-theme') ||
+      button.hasAttribute('data-op-locale')
+    ) {
+      const key = button.hasAttribute('data-op-theme') ? 'theme' : 'locale';
+      preference(
+        key,
+        key === 'theme'
+          ? document.documentElement.dataset.theme === 'dark'
+            ? 'light'
+            : 'dark'
+          : document.documentElement.lang === 'en'
+            ? 'vi'
+            : 'en',
+      );
+      render();
+      return;
+    }
     const action = button.dataset.apiAction;
     if (button.dataset.action === 'logout')
       run(async () => {

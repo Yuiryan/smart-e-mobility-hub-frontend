@@ -35,16 +35,13 @@ Bearer token gửi cho các API cần quyền. Mốc giờ chuyển thành ISO-8
 
 Nhận/trả xe sinh UUID Idempotency-Key cho mỗi thao tác. 202 chỉ hiển thị đang chờ, không tạo chuyến đi thành công. Poll mỗi 2 giây, tối đa 30 lần trong một lượt mở màn; người dùng có thể kiểm tra tiếp thủ công. Khi lỗi mạng/503, giữ key và payload cũ để đối soát bằng đúng yêu cầu đó. Không tự tạo lệnh khác khi kết quả chưa rõ. Kết quả SUCCEEDED mới chuyển trạng thái chuyến đi.
 
-## Điểm cần backend hoàn thiện
+## Cập nhật backend ngày 25/11/2026
 
-Đối chiếu repository ngày 24/11/2026:
+Đã fetch repository mới nhất. Nhánh `feat/system-auth-iot` hiện ở `9765829`, đã có logout, me, khôi phục/đổi mật khẩu, lịch sạc và mô phỏng. Frontend đã gắn thêm các bước khôi phục/đổi mật khẩu: request → verify → recoveryToken → reset, token chỉ ở bộ nhớ; reset yêu cầu xác nhận mật khẩu mới.
 
-- `m1_student` commit `ca7ac1b`: có controller UC01–UC07, chưa có AccountController.
-- `feat/system-auth-iot` commit `1f2eacd`: có AccountController nhưng login yêu cầu thêm `role`, register yêu cầu thêm `fullName`. Login response thiếu email/studentId so với contract (UI có thể dùng email vừa nhập). Chưa có logout endpoint.
-- Backend cần hợp nhất auth và student flow dùng cùng kho account/session, đồng thời sửa DTO theo contract. Chạy hai server riêng biệt không tự chia sẻ token/session.
-- Chưa có API liệt kê chỗ đỗ, xe cá nhân, lịch sử lượt đặt hoặc chuyến đang chạy. UI hiện cho nhập ID tại màn đỗ/sạc/trả và hiển thị các biên nhận nhận được trong phiên; không tạo danh sách giả.
-- Quên/đổi mật khẩu, thông báo và operator API chưa được nối trong đợt mobile này.
-- Logout xóa phiên trong frontend kể cả khi endpoint server lỗi; khi backend chưa có logout, token chưa được thu hồi phía server.
+DTO login vẫn bắt buộc role và register vẫn bắt buộc fullName. Theo lựa chọn trước đó, frontend giữ nguyên contract, chưa thêm hai trường. Auth/student/operator vẫn ở các nhánh riêng. Vì thế các API đã được nối trong mã nguồn nhưng đăng nhập xuyên suốt còn phụ thuộc backend hợp nhất và khớp DTO.
+
+API vận hành UC08–UC14 đã được nối trong API mode; xem [OPERATOR-API.md](OPERATOR-API.md) để biết endpoint, revision/version, idempotency và giới hạn kiểm chứng. API liệt kê Hub/chỗ đỗ đã có trong nhánh M2 nhưng chưa hợp nhất vào nhánh student.
 
 ## Kiểm chứng
 

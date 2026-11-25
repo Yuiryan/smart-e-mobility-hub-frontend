@@ -14,7 +14,7 @@ export const operatorNavigation = () => [
   ['/operator/simulation', t('Mô phỏng What-if', 'What-if simulation')],
   ['/settings', t('Giao diện', 'Appearance')],
 ];
-export function operatorShell(content, route, alerts = 0) {
+export function operatorShell(content, route, alerts = null) {
   const dark = document.documentElement.dataset.theme === 'dark';
   return `<div class="app-frame operator-frame figma-operator"><aside class="op-sidebar"><a class="op-brand" href="#/operator/overview">Mobility<br>Hub</a><p>${t('ĐƠN VỊ VẬN HÀNH', 'OPERATIONS')}</p><nav aria-label="${t('Điều hướng vận hành', 'Operator navigation')}">${operatorNavigation()
     .map(
@@ -23,7 +23,7 @@ export function operatorShell(content, route, alerts = 0) {
     )
     .join(
       '',
-    )}</nav><a class="op-account" href="#/account">${t('Tài khoản', 'Account')}</a></aside><main id="main" tabindex="-1"><header class="op-topbar"><span>${t('Khu đô thị ĐHQG-HCM', 'VNU-HCM University Town')}</span><div class="op-top-actions"><button type="button" data-op-locale>${document.documentElement.lang === 'en' ? 'EN' : 'VI'}</button><span>·</span><button type="button" data-op-theme>${dark ? t('Chuyển sang Sáng', 'Switch to Light') : t('Chuyển sang Tối', 'Switch to Dark')}</button></div>${route === '/operator/overview' ? link('/operator/alerts', t(`Thông báo quá tải (${alerts})`, `Overload alerts (${alerts})`), 'button secondary') : ''}</header><div id="feedback" role="alert" hidden></div>${content}</main></div><aside class="preview-tools"><span>DEMO · ${t('Dữ liệu mô phỏng', 'Simulated data')}</span>${link('/account', t('Tài khoản', 'Account'))}</aside>`;
+    )}</nav><a class="op-account" href="#/account">${t('Tài khoản', 'Account')}</a></aside><main id="main" tabindex="-1"><header class="op-topbar"><span>${t('Khu đô thị ĐHQG-HCM', 'VNU-HCM University Town')}</span><div class="op-top-actions"><button type="button" data-op-locale>${document.documentElement.lang === 'en' ? 'EN' : 'VI'}</button><span>·</span><button type="button" data-op-theme>${dark ? t('Chuyển sang Sáng', 'Switch to Light') : t('Chuyển sang Tối', 'Switch to Dark')}</button></div>${route === '/operator/overview' ? link('/operator/alerts', t(`Thông báo quá tải${alerts == null ? '' : ` (${alerts})`}`, `Overload alerts${alerts == null ? '' : ` (${alerts})`}`), 'button secondary') : ''}</header><div id="feedback" role="alert" hidden></div>${content}</main></div><aside class="preview-tools"><span>DEMO · ${t('Dữ liệu mô phỏng', 'Simulated data')}</span>${link('/account', t('Tài khoản', 'Account'))}</aside>`;
 }
 export function operatorAuthShell(content) {
   if (content.includes('data-form="forgot"')) {

@@ -92,4 +92,4 @@ npm.cmd ci
 npm.cmd run dev
 ```
 
-Sidebar gồm tổng quan, tài nguyên Hub, can thiệp, cảnh báo, điều phối, sự cố, lịch sạc, mô phỏng và giao diện. Chuyển Việt/Anh và sáng/tối ở góc trên hoặc trong mục Giao diện. Luồng vận hành vẫn dùng demo; `dev:api` hiện dành cho mobile, chưa có tích hợp API vận hành.
+Sidebar gồm tổng quan, tài nguyên Hub, can thiệp, cảnh báo, điều phối, sự cố, lịch sạc, mô phỏng và giao diện. Chuyển Việt/Anh và sáng/tối ở góc trên hoặc trong mục Giao diện. `dev:api` đã gắn thêm API vận hành UC08–UC14. Cần backend tích hợp các nhánh M1/M2/M3 và DTO auth đúng contract; xem [hướng dẫn API vận hành](docs/OPERATOR-API.md). `dev` vẫn là demo.

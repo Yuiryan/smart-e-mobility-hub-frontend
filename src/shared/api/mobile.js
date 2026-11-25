@@ -30,6 +30,7 @@ export class MobileApi {
     this.charging = [];
     this.ride = null;
     this.command = null;
+    this.recovery = null;
   }
   get user() {
     return this.session?.user || null;
@@ -91,6 +92,58 @@ export class MobileApi {
     } finally {
       this.clear();
     }
+  }
+  async requestRecovery(email) {
+    await this.call(
+      '/auth/password/recovery/request',
+      { email },
+      { auth: false },
+    );
+    this.recovery = { email };
+  }
+  async verifyRecovery(code) {
+    if (!this.recovery?.email) throw new Error('Request a recovery code first');
+    const grant = await this.call(
+      '/auth/password/recovery/verify',
+      { email: this.recovery.email, code },
+      { auth: false },
+    );
+    if (
+      !grant?.recoveryToken ||
+      Date.parse(grant.expiresAt) <= Date.now() ||
+      !Number.isFinite(Date.parse(grant.expiresAt))
+    )
+      throw new Error('Invalid recovery grant');
+    this.recovery = { ...this.recovery, ...grant };
+  }
+  async resetPassword(newPassword, confirmPassword) {
+    if (newPassword !== confirmPassword)
+      throw new Error('Passwords do not match');
+    if (
+      !this.recovery?.recoveryToken ||
+      Date.parse(this.recovery.expiresAt) <= Date.now()
+    )
+      throw new Error('Recovery grant expired');
+    await this.call(
+      '/auth/password/recovery/reset',
+      {
+        recoveryToken: this.recovery.recoveryToken,
+        newPassword,
+        confirmPassword,
+      },
+      { auth: false },
+    );
+    this.recovery = null;
+  }
+  async changePassword(currentPassword, newPassword, confirmPassword) {
+    if (newPassword !== confirmPassword)
+      throw new Error('Passwords do not match');
+    await this.call('/auth/password/change', {
+      currentPassword,
+      newPassword,
+      confirmPassword,
+    });
+    this.clear();
   }
   async search(values, signal) {
     const hubs = validateSearchResponse(

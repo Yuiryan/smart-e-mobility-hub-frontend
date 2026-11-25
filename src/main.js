@@ -1,3 +1,5 @@
+import { mountOperatorApi } from './features/operator-api.js';
+import { mobileApi } from './shared/api/mobile.js';
 import { mountMobileApi } from './features/mobile-api.js';
 let disposeLive;
 import { OperatorEngine } from './mocks/operator-engine.js';
@@ -113,7 +115,12 @@ function render() {
   disposeLive?.();
   disposeLive = null;
   if (!demoMode) {
-    disposeLive = mountMobileApi(root, location.hash.slice(1) || '/');
+    const livePath = location.hash.slice(1) || '/';
+    disposeLive =
+      livePath.startsWith('/operator') ||
+      (livePath === '/settings' && mobileApi.user?.role === 'OPERATOR')
+        ? mountOperatorApi(root, livePath)
+        : mountMobileApi(root, livePath);
     return;
   }
   stopScanner();
