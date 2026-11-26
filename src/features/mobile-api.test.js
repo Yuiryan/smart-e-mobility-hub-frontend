@@ -296,13 +296,29 @@ it('selects a Hub with no vehicles and returns to the loaded Hub list', async ()
     { spaceId: 'A-02', hubId: 'empty', status: 'OCCUPIED', blocked: false },
     { spaceId: 'A-03', hubId: 'empty', status: 'AVAILABLE', blocked: true },
   ]);
-  mobileApi.studentVehicles = [parkingVehicle];
+  mobileApi.studentVehicles = [
+    {
+      vehicleId: 'private_72C212345',
+      ownership: 'PRIVATE',
+      canBookParking: true,
+    },
+  ];
   document.querySelector('[data-api-action="hub-parking"]').click();
   await vi.waitFor(() =>
     expect(document.querySelector('[data-api="parking"]')).not.toBeNull(),
   );
   expect(spaces).toHaveBeenCalledWith('empty', expect.any(AbortSignal));
   const form = document.querySelector('[data-api="parking"]');
+  expect(form.querySelector('.parking-count').textContent).toContain('1 / 3');
+  expect(form.querySelector('.parking-option strong').textContent).toMatch(
+    /1$/,
+  );
+  expect(
+    form.querySelector('[name="vehicleId"]').selectedOptions[0].textContent,
+  ).toContain('72-C2 12345');
+  expect(form.querySelector('[name="vehicleId"]').value).toBe(
+    'private_72C212345',
+  );
   expect(form.querySelector('[name="hubId"]').type).toBe('hidden');
   expect(form.querySelector('[name="hubId"]').value).toBe('empty');
   expect(
@@ -357,6 +373,16 @@ it.each([
       vehicleId: 'bike-7',
       status: 'ACTIVE',
     };
+    mobileApi.parking = [
+      {
+        parkingReservationId: 'own-hold',
+        spaceId: 'A-03',
+        vehicleId: 'bike-7',
+        status: 'ACTIVE',
+        startsAt: new Date(Date.now() - 1000).toISOString(),
+        expiresAt: new Date(Date.now() + 60000).toISOString(),
+      },
+    ];
     const searchResults = [
       { hubId: 'nearby', hubName: 'Nearby', vehicles: [] },
     ];
@@ -366,6 +392,8 @@ it.each([
     ]);
     vi.spyOn(mobileApi, 'hubSpaces').mockResolvedValue([
       { spaceId: 'A-01', status: 'AVAILABLE', blocked: false },
+      { spaceId: 'A-03', status: 'RESERVED', blocked: false },
+      { spaceId: 'A-04', status: 'RESERVED', blocked: false },
       { spaceId: 'A-02', status: 'OCCUPIED', blocked: false },
     ]);
     document.body.innerHTML = '<div id="root"></div>';
@@ -380,6 +408,10 @@ it.each([
     const form = document.querySelector(`[data-api="${formType}"]`);
     expect(form.querySelector('[value="A-01"]').disabled).toBe(false);
     expect(form.querySelector('[value="A-02"]').disabled).toBe(true);
+    expect(form.querySelector('[value="A-03"]').disabled).toBe(
+      formType !== 'return',
+    );
+    expect(form.querySelector('[value="A-04"]').disabled).toBe(true);
     if (formType === 'return') {
       expect(form.querySelector('[name="rideId"]').value).toBe('ride-1');
       expect(document.body.textContent).toContain('bike-7');
@@ -591,4 +623,50 @@ it('shows backend ISO expiry and rental times for parking receipts', () => {
   expect(receipt.textContent).not.toContain('—');
   expect(receipt.textContent).toContain('2026');
   expect(receipt.textContent).toContain('→');
+});
+
+it('finds vehicles from device coordinates, orders them nearest first and alerts on an empty search', async () => {
+  const coords = { latitude: 10.77, longitude: 106.66 };
+  vi.stubGlobal('navigator', {
+    geolocation: { getCurrentPosition: (ok) => ok({ coords }) },
+  });
+  const alert = vi.spyOn(window, 'alert').mockImplementation(() => {});
+  const hubs = [8, 2].map((distanceKm) => ({
+    hubId: 'h' + distanceKm,
+    hubName: 'Hub ' + distanceKm,
+    distanceKm,
+    availableVehicleCount: 1,
+    telemetryStatus: 'FRESH',
+    vehicles: [
+      { vehicleId: 'bike' + distanceKm, batteryPct: 60, status: 'AVAILABLE' },
+    ],
+  }));
+  const call = vi
+    .spyOn(mobileApi, 'call')
+    .mockResolvedValueOnce({ hubs })
+    .mockResolvedValueOnce({ hubs: [] });
+  document.body.innerHTML = '<div id="root"></div>';
+  const root = document.querySelector('#root');
+  dispose = mountMobileApi(root, '/student/vehicles');
+  root.querySelector('[data-battery-filter="80"]').click();
+  const search = () =>
+    root.querySelector('[data-api-action="nearby-vehicles"]').click();
+  search();
+  await vi.waitFor(() =>
+    expect(
+      [...root.querySelectorAll('.rental-card strong')].map(
+        (el) => el.textContent,
+      ),
+    ).toEqual(['bike2', 'bike8']),
+  );
+  expect(call).toHaveBeenCalledWith(
+    '/search/hubs',
+    { origin: coords, destination: null, radiusKm: 50 },
+    expect.objectContaining({ auth: false }),
+  );
+  expect(alert).not.toHaveBeenCalled();
+  search();
+  await vi.waitFor(() => expect(alert).toHaveBeenCalledTimes(1));
+  expect(root.querySelectorAll('.rental-card')).toHaveLength(0);
+  expect(root.querySelector('.hub-browser')).toBeNull();
 });

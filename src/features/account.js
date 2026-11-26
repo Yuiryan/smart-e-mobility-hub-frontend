@@ -3,7 +3,8 @@ import { mobileHeading, successCard, icon } from '../shared/design.js';
 export function accountPage(data, mode = 'login', flow = {}) {
   if (data.user && !['password', 'forgot', 'verify', 'reset'].includes(mode)) {
     const user = data.user;
-    const name = user.fullName || user.name || t('Sinh viên', 'Student');
+    const name =
+      user.fullName || user.name || t('Chưa có thông tin', 'Not provided');
     const heading = (vi, en) => mobileHeading(t(vi, en), '/account');
     if (mode === 'general')
       return (
@@ -165,12 +166,12 @@ export function accountPage(data, mode = 'login', flow = {}) {
   if (mode === 'forgot')
     fields =
       `<p class="auth-description">${t('Nhập email đã đăng ký để nhận mã xác nhận.', 'Enter your registered email to receive a verification code.')}</p>` +
-      field(
+      input(
         'email',
         'Email',
         'email',
-        t('Nhập email của bạn', 'Enter your email'),
-        'autocomplete="email"',
+        data.user?.email || '',
+        `required autocomplete="email" placeholder="${e(t('Nhập email của bạn', 'Enter your email'))}"`,
       );
   if (mode === 'verify')
     fields =
@@ -222,5 +223,5 @@ export function accountPage(data, mode = 'login', flow = {}) {
         : mode === 'verify'
           ? t('Xác nhận mã', 'Verify code')
           : t('Lưu mật khẩu mới', 'Save new password');
-  return `<div class="auth-wrap">${mobileHeading(names[mode], login ? '/' : '/account')}<div id="auth-error" role="alert" hidden></div>${login ? '<h2 class="auth-brand">Mobility Hub</h2>' : ''}<form data-form="${login ? 'login' : mode}" class="auth-form">${fields}<button class="primary full">${e(action)}</button></form><div class="auth-actions">${login ? link('/account/forgot', t('Quên mật khẩu', 'Forgot password'), 'button secondary full') + (role === 'STUDENT' ? link('/account/register', t('Đăng ký tài khoản', 'Create a student account'), 'button secondary full') : '') : mode === 'register' ? link('/account', t('Đã có tài khoản? Đăng nhập', 'Already registered? Sign in'), 'button secondary full') : ''}</div></div>`;
+  return `<div class="auth-wrap">${mobileHeading(names[mode], login ? '/' : '/account')}<div id="auth-error" role="alert" hidden></div>${login ? '<h2 class="auth-brand">Mobility Hub</h2>' : ''}<form data-form="${login ? 'login' : mode}" class="auth-form">${fields}<button class="primary full">${e(action)}</button></form><div class="auth-actions">${login ? link('/account/forgot', t('Quên mật khẩu', 'Forgot password'), 'button secondary full') + (role === 'STUDENT' ? link('/account/register', t('Đăng ký tài khoản', 'Create a student account'), 'button secondary full') : '') : mode === 'password' ? link('/account/forgot', t('Quên mật khẩu', 'Forgot password'), 'button secondary full') : mode === 'register' ? link('/account', t('Đã có tài khoản? Đăng nhập', 'Already registered? Sign in'), 'button secondary full') : ''}</div></div>`;
 }

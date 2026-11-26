@@ -153,6 +153,12 @@ export class MobileApi {
       this.reservations.unshift(receipt);
       if (!storedCode && saved?.pickupCode) this.#rememberPickupCode(receipt);
     }
+    if (Array.isArray(data.parking)) {
+      this.parking = [
+        ...data.parking,
+        ...this.parking.filter((r) => r.status !== 'ACTIVE'),
+      ];
+    }
     this.ride = ride;
     this.studentVehicles = Array.isArray(data.vehicles) ? data.vehicles : [];
     this.journeyLoaded = true;
@@ -258,7 +264,7 @@ export class MobileApi {
       },
       { auth: false },
     );
-    this.recovery = null;
+    this.clear();
   }
   async changePassword(currentPassword, newPassword, confirmPassword) {
     if (newPassword !== confirmPassword)
@@ -343,7 +349,8 @@ export class MobileApi {
       throw new Error(
         'Invalid reservation response; check with backend before retrying',
       );
-    this.removeListedVehicle(vehicleId);
+    if (!data.startsAt || Date.parse(data.startsAt) <= Date.now())
+      this.removeListedVehicle(vehicleId);
     this.reservations.unshift({
       ...data,
       vehicleId: data.vehicleId || vehicleId,
@@ -385,6 +392,16 @@ export class MobileApi {
     )
       throw new Error('Invalid parking spaces response');
     return data.items;
+  }
+  async cancelParking(id) {
+    await this.call(
+      '/parking-reservations/' + encodeURIComponent(id) + '/cancel',
+      {},
+    );
+    const receipt = this.parking.find(
+      (hold) => hold.parkingReservationId === id,
+    );
+    if (receipt) receipt.status = 'CANCELLED';
   }
   async reserveParking(vehicleId, hubId, spaceId, start, end) {
     const data = await this.call('/parking-reservations', {
@@ -560,6 +577,7 @@ export class MobileApi {
       }
       this.#forgetPickupCode(reservationId);
     } else if (command.kind === 'RETURN') {
+      this.journeyLoaded = false;
       const receipt = this.reservations.find(
         (r) =>
           r.rideId === data.rideId ||

@@ -831,6 +831,23 @@ textarea {
 .parking-options legend {
   font-weight: 600;
 }
+.parking-count {
+  grid-column: 1 / -1;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 10px 14px;
+  border-radius: 12px;
+  background: var(--tint);
+  color: var(--primary);
+}
+.parking-count strong {
+  font-size: 1.2rem;
+}
+.parking-option input:enabled + span small {
+  color: var(--primary);
+  font-weight: 600;
+}
 .parking-option {
   position: relative;
 }

@@ -105,6 +105,7 @@ it('keeps the same key and payload after a timeout and prevents a new command', 
   expect(send.mock.calls[1][1].body).toBe(first[1].body);
 });
 it('leaves the ride active until the return is confirmed', async () => {
+  api.journeyLoaded = true;
   api.ride = { rideId: 'ride', status: 'ACTIVE' };
   send.mockRejectedValueOnce(new ApiError(503, 'Waiting for lock'));
   await expect(api.returnRide('ride', 'h', 's')).rejects.toThrow();
@@ -115,6 +116,29 @@ it('leaves the ride active until the return is confirmed', async () => {
   });
   await api.sendCommand();
   expect(api.ride.status).toBe('COMPLETED');
+  expect(api.journeyLoaded).toBe(false);
+});
+it('restores a parking hold and cancels it only after server confirmation', async () => {
+  const hold = {
+    parkingReservationId: 'p/1',
+    vehicleId: 'v',
+    spaceId: 's',
+    status: 'ACTIVE',
+  };
+  send.mockResolvedValueOnce({
+    reservation: null,
+    ride: null,
+    parking: [hold],
+  });
+  await api.loadJourney();
+  expect(api.parking).toEqual([hold]);
+  send.mockRejectedValueOnce(new ApiError(409, 'Lock pending'));
+  await expect(api.cancelParking('p/1')).rejects.toThrow('Lock pending');
+  expect(api.parking[0].status).toBe('ACTIVE');
+  send.mockResolvedValueOnce(undefined);
+  await api.cancelParking('p/1');
+  expect(send.mock.calls[2][0]).toBe('/parking-reservations/p%2F1/cancel');
+  expect(api.parking[0].status).toBe('CANCELLED');
 });
 it('marks a charging booking cancelled after the backend confirms release', async () => {
   api.charging = [{ chargingRequestId: 'c/1', status: 'SCHEDULED' }];
