@@ -1,3 +1,4 @@
+import { hubLabel, resourceLabel } from '../shared/resource-labels.js';
 import {
   operatorApi as api,
   interventionParameters,
@@ -25,7 +26,7 @@ const chargingPortTable = (ports) =>
   table(
     [t('Cổng sạc', 'Charger'), t('Xe', 'Vehicle'), t('Trạng thái', 'Status')],
     ports.map((port) => [
-      value(port.portId),
+      value(resourceLabel(port.portId)),
       value(port.vehicleId),
       value(port.status),
     ]),
@@ -139,8 +140,8 @@ export function mountOperatorApi(root, path) {
     if (focus) box.focus();
   }
   const hubOptions = () =>
-    data.hubs.map((h) => [h.hubId, h.hubName || h.name || h.hubId]);
-  const hubName = (id) => data.hubs?.find((h) => h.hubId === id)?.hubName || id;
+    data.hubs.map((h) => [h.hubId, h.hubName || h.name || hubLabel(h.hubId)]);
+  const hubName = (id) => hubLabel(id, data.hubs);
   function operationResult(result) {
     if (mountToken !== mobileApi.session?.sessionToken) return;
     if (result?.operationId) {
@@ -154,6 +155,27 @@ export function mountOperatorApi(root, path) {
       state.schedule = result;
       if (state.proposal) state.proposal.confirmedScheduleId = result.id;
     }
+  }
+  function scheduleReason(code) {
+    const [reason, ...resource] = String(code).split(':');
+    const messages = {
+      EMPTY_SCHEDULE: t(
+        'Chưa có xe phù hợp để xếp lịch tại Hub này.',
+        'No eligible vehicle can be scheduled at this hub.',
+      ),
+      TELEMETRY_UNAVAILABLE: t(
+        'Chưa có số đo pin mới',
+        'Fresh battery reading unavailable',
+      ),
+      VEHICLE_RESERVED: t('Xe đã được giữ chỗ', 'Vehicle already reserved'),
+      NO_CAPACITY: t(
+        'Chưa có khung sạc đủ công suất',
+        'No charging window with sufficient capacity',
+      ),
+      ALREADY_ALLOCATED: t('Đã có lịch sạc', 'Charging already scheduled'),
+      HUB_UNAVAILABLE: t('Hub chưa sẵn sàng', 'Hub unavailable'),
+    };
+    return [messages[reason] || reason, ...resource].join(' · ');
   }
   function contents() {
     if (path === '/settings') return operatorSettings();
@@ -214,8 +236,8 @@ export function mountOperatorApi(root, path) {
           ],
           data.vehicles.map((v) => [
             value(v.vehicleId),
-            value(v.batteryPct == null ? null : v.batteryPct + '%'),
-            value(v.spaceId),
+            value(v.batteryPct == null ? null : Math.round(v.batteryPct) + '%'),
+            value(resourceLabel(v.spaceId)),
             value(v.status),
             value(v.connectionStatus),
           ]),
@@ -227,7 +249,7 @@ export function mountOperatorApi(root, path) {
             t('Trạng thái', 'Status'),
           ],
           data.spaces.map((s) => [
-            value(s.spaceId),
+            value(resourceLabel(s.spaceId)),
             value(s.vehicleId),
             value(s.status),
           ]),
@@ -245,7 +267,7 @@ export function mountOperatorApi(root, path) {
             t('Cập nhật', 'Updated'),
           ],
           data.alerts.map((a) => [
-            value(a.hubId),
+            value(hubName(a.hubId)),
             value(a.severity),
             value(a.message),
             value(a.observedAt),
@@ -381,7 +403,9 @@ export function mountOperatorApi(root, path) {
               (c?.items || []).map((v) => [
                 `<input type="checkbox" name="vehicleIds" value="${e(v.vehicleId)}" aria-label="${e(v.vehicleId)}" ${v.dispatchModes.includes(state.transportMode || 'TRUCK') ? '' : 'disabled'}>`,
                 value(v.vehicleId),
-                value(v.batteryPct),
+                value(
+                  v.batteryPct == null ? null : Math.round(v.batteryPct) + '%',
+                ),
                 value(v.status),
               ]),
             ) +
@@ -410,7 +434,7 @@ export function mountOperatorApi(root, path) {
           ],
           data.incidents.map((i) => [
             value(i.resourceId),
-            value(i.hubId),
+            value(hubName(i.hubId)),
             value(i.description),
             value(i.status),
             i.allowedActions
@@ -438,17 +462,43 @@ export function mountOperatorApi(root, path) {
       );
     if (screen === 'charging') {
       const p = state.proposal;
+      const hubs = data.network.hubs.filter(
+        (h) => h.freeSpaceCount > 0 && h.chargingPortsByStatus?.AVAILABLE > 0,
+      );
+      const choices = hubs.map((h) => [
+        h.hubId,
+        [
+          h.hubName || hubName(h.hubId),
+          h.freeSpaceCount + t(' ô trống', ' free spaces'),
+          h.chargingPortsByStatus.AVAILABLE + t(' cổng trống', ' free ports'),
+        ].join(' · '),
+      ]);
       return (
-        title(t('Lập lịch sạc thông minh', 'Smart charging schedule')) +
-        form(
-          'schedule',
-          select('hubId', 'Mobility Hub', hubOptions(), state.hub),
-          t('Tạo / cập nhật đề xuất', 'Create / update proposal'),
+        title(
+          t('Lập lịch sạc thông minh', 'Smart charging schedule'),
+          t(
+            'Ưu tiên xe dùng chung còn dưới 30% pin tại Hub còn chỗ đỗ và cổng sạc.',
+            'Suggest idle shared vehicles below 30% at hubs with free parking and chargers.',
+          ),
         ) +
+        (choices.length
+          ? form(
+              'schedule',
+              select('hubId', 'Mobility Hub', choices, p?.hubId || state.hub),
+              t('Tạo / cập nhật đề xuất', 'Create / update proposal'),
+            )
+          : t(
+              'Hiện chưa có Hub còn cả ô đỗ và cổng sạc trống.',
+              'No hub currently has both free parking and a free charging port.',
+            )) +
         (p
-          ? table(
+          ? '<h3>' +
+            e(hubName(p.hubId)) +
+            '</h3>' +
+            table(
               [
                 t('Xe', 'Vehicle'),
+                t('Pin', 'Battery'),
                 t('Cổng', 'Port'),
                 t('Bắt đầu', 'Start'),
                 t('Kết thúc', 'End'),
@@ -456,9 +506,20 @@ export function mountOperatorApi(root, path) {
               ],
               p.slots.map((s) => [
                 value(s.vehicleId),
-                value(s.portId),
-                value(s.startAt),
-                value(s.endAt),
+                value(
+                  s.batteryPct == null ? null : Math.round(s.batteryPct) + '%',
+                ),
+                value(resourceLabel(s.portId)),
+                value(
+                  new Date(s.startAt).toLocaleString(
+                    document.documentElement.lang || undefined,
+                  ),
+                ),
+                value(
+                  new Date(s.endAt).toLocaleString(
+                    document.documentElement.lang || undefined,
+                  ),
+                ),
                 !p.confirmedScheduleId
                   ? button('edit-slot', t('Điều chỉnh', 'Edit'), s.id)
                   : '',
@@ -466,14 +527,19 @@ export function mountOperatorApi(root, path) {
             ) +
             table(
               [t('Xe chờ', 'Queued vehicle'), t('Lý do', 'Reason')],
-              p.queue.map((q) => [value(q.vehicleId), value(q.reason)]),
+              p.queue.map((q) => [
+                value(q.vehicleId),
+                value(scheduleReason(q.reason)),
+              ]),
             ) +
             p.violations
-              .map((v) => `<p class="feedback error">${e(v)}</p>`)
+              .map(
+                (v) => `<p class="feedback error">${e(scheduleReason(v))}</p>`,
+              )
               .join('') +
             (p.confirmedScheduleId
               ? `<p>${t('Lịch đã xác nhận: ', 'Confirmed schedule: ')}${e(p.confirmedScheduleId)}</p>`
-              : !p.violations.length
+              : p.slots.length > 0 && !p.violations.length
                 ? button(
                     'confirm-schedule',
                     t('Xác nhận và lưu lịch', 'Confirm and save schedule'),
@@ -488,6 +554,24 @@ export function mountOperatorApi(root, path) {
         title(t('Mô phỏng kịch bản What-if', 'What-if scenario simulation')) +
         (s
           ? `<div class="op-metrics">${metric(s.projectedOverloadHubs.length, t('Hub có nguy cơ quá tải', 'Hubs at risk'))}${metric(s.failedBookingsCount, t('Lượt không đặt được xe', 'Failed bookings'))}${metric(s.failedReturnsCount, t('Lượt không trả được xe', 'Failed returns'))}${metric(s.status, t('Trạng thái', 'Status'))}</div><p>${e(s.disclaimer)}</p>` +
+            (s.additionalArrivalsResult
+              ? '<h3>' +
+                e(hubName(s.additionalArrivalsResult.hubId)) +
+                '</h3><div class="op-metrics">' +
+                metric(
+                  s.additionalArrivalsResult.requested,
+                  t('Xe giả định đến', 'Hypothetical arrivals'),
+                ) +
+                metric(
+                  s.additionalArrivalsResult.accepted,
+                  t('Xe tiếp nhận được', 'Vehicles accommodated'),
+                ) +
+                metric(
+                  s.additionalArrivalsResult.rejected,
+                  t('Xe thiếu chỗ đỗ', 'Vehicles without parking'),
+                ) +
+                '</div>'
+              : '') +
             table(
               [
                 t('Hub nguồn', 'Source'),
@@ -496,8 +580,8 @@ export function mountOperatorApi(root, path) {
                 t('Thao tác', 'Action'),
               ],
               s.recommendedDispatch.map((p) => [
-                value(p.fromHub),
-                value(p.toHub),
+                value(hubName(p.fromHub)),
+                value(hubName(p.toHub)),
                 value(p.vehicleCount),
                 button(
                   'proposal',
@@ -512,7 +596,7 @@ export function mountOperatorApi(root, path) {
             button('new-simulation', t('Kịch bản mới', 'New scenario'))
           : form(
               'simulate',
-              `<div class="panel">${field('scenarioName', t('Tên kịch bản', 'Scenario name'))}${field('duration', t('Thời gian mô phỏng (giờ)', 'Simulation duration (hours)'), 'number', '2', 'required min="0.1" step="0.1"')}${field('multiplier', t('Hệ số nhu cầu (1.5 = tăng 50%)', 'Rental multiplier (1.5 = +50%)'), 'number', '1.5', 'required min="0" step="0.1"')}${select('hubOutageId', t('Hub ngừng hoạt động giả định', 'Hypothetical Hub outage'), [['', t('Không có', 'None')], ...hubOptions()])}</div>`,
+              `<div class="panel">${field('scenarioName', t('Tên kịch bản', 'Scenario name'), 'text', t('Xe di chuyển đến Hub', 'Vehicles arriving at a hub'))}${select('arrivalHubId', t('Hub tiếp nhận xe', 'Arrival hub'), hubOptions(), state.hub)}${field('vehicleCount', t('Số xe giả định di chuyển đến', 'Hypothetical arriving vehicles'), 'number', '5', 'required min="0" max="2147483647" step="1"')}${field('duration', t('Thời gian mô phỏng (giờ)', 'Simulation duration (hours)'), 'number', '2', 'required min="0.1" step="0.1"')}${field('multiplier', t('Hệ số nhu cầu (1.5 = tăng 50%)', 'Rental multiplier (1.5 = +50%)'), 'number', '1.5', 'required min="0" step="0.1"')}${select('hubOutageId', t('Hub ngừng hoạt động giả định', 'Hypothetical Hub outage'), [['', t('Không có', 'None')], ...hubOptions()])}</div>`,
               t('Bắt đầu mô phỏng', 'Start simulation'),
             ))
       );
@@ -536,7 +620,8 @@ export function mountOperatorApi(root, path) {
         draw(contents());
         return;
       }
-      if (screen === 'overview') data.network = await api.network(signal);
+      if (screen === 'overview' || screen === 'charging')
+        data.network = await api.network(signal);
       if (
         ['resources', 'dispatch', 'charging', 'simulation'].includes(screen)
       ) {
@@ -657,6 +742,10 @@ export function mountOperatorApi(root, path) {
             simulatedDurationHours: Number(v.duration),
             rentalMultiplier: Number(v.multiplier),
             hubOutageId: v.hubOutageId || null,
+            additionalArrivals: {
+              hubId: v.arrivalHubId,
+              vehicleCount: Number(v.vehicleCount),
+            },
           },
         });
     }, !['schedule', 'simulate'].includes(kind));

@@ -142,3 +142,73 @@ it('hides LOCK and UNLOCK from vehicle intervention action choices', async () =>
   );
   expect(actions).toEqual(['MARK_MAINTENANCE', 'SET_BATTERY']);
 });
+
+it('sends the selected arrival hub and count and renders the capacity outcome', async () => {
+  vi.spyOn(operatorApi, 'hubs').mockResolvedValue({
+    items: [
+      { hubId: 'a', hubName: 'Hub A' },
+      { hubId: 'b', hubName: 'Hub B' },
+    ],
+  });
+  const simulate = vi.spyOn(operatorApi, 'simulate').mockResolvedValue({
+    simulationId: 'scenario',
+    status: 'COMPLETED',
+    projectedOverloadHubs: [],
+    failedBookingsCount: 0,
+    failedReturnsCount: 2,
+    additionalArrivalsResult: {
+      hubId: 'b',
+      requested: 7,
+      accepted: 5,
+      rejected: 2,
+    },
+    recommendedDispatch: [],
+    missingData: [],
+  });
+  const root = document.querySelector('#test-root');
+  dispose = mountOperatorApi(root, '/operator/simulation');
+  await vi.waitFor(() =>
+    expect(root.querySelector('[name=arrivalHubId]')).not.toBeNull(),
+  );
+  const form = root.querySelector('form');
+  form.elements.arrivalHubId.value = 'b';
+  form.elements.vehicleCount.value = '7';
+  form.requestSubmit();
+  await vi.waitFor(() =>
+    expect(simulate).toHaveBeenCalledWith(
+      expect.objectContaining({
+        parameters: expect.objectContaining({
+          additionalArrivals: { hubId: 'b', vehicleCount: 7 },
+        }),
+      }),
+    ),
+  );
+  await vi.waitFor(() =>
+    expect(root.querySelector('h3')?.textContent).toBe('Hub B'),
+  );
+});
+
+it('only offers charging hubs with both free parking and an available port', async () => {
+  const hubs = [
+    ['full', 0, 1],
+    ['busy', 1, 0],
+    ['ready', 2, 1],
+  ].map(([hubId, freeSpaceCount, ports]) => ({
+    hubId,
+    hubName: hubId,
+    freeSpaceCount,
+    chargingPortsByStatus: { AVAILABLE: ports },
+  }));
+  vi.spyOn(operatorApi, 'network').mockResolvedValue({ hubs });
+  vi.spyOn(operatorApi, 'hubs').mockResolvedValue({ items: hubs });
+  const root = document.querySelector('#test-root');
+  dispose = mountOperatorApi(root, '/operator/charging');
+  await vi.waitFor(() =>
+    expect(root.querySelector('select[name=hubId]')).not.toBeNull(),
+  );
+  expect(
+    [...root.querySelectorAll('select[name=hubId] option')].map(
+      (option) => option.value,
+    ),
+  ).toEqual(['ready']);
+});
