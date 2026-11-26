@@ -11,23 +11,24 @@ npm.cmd run dev:api
 
 Mở http://localhost:5173. Nếu cổng đã được dùng, thêm `-- --port 5176`. `npm.cmd run dev` vẫn là demo; `npm.cmd run build:api` build bản API. Vite proxy `/api` tới `http://localhost:8080`, thay bằng `API_PROXY_TARGET` trong `.env.local` nếu cần. Bản triển khai cần reverse proxy `/api` tương ứng.
 
-Không lưu token, mật khẩu, mã nhận xe hoặc tọa độ vào localStorage/sessionStorage. Token và các biên nhận chỉ nằm trong bộ nhớ; reload cần đăng nhập lại. Không fallback về mock khi server lỗi.
+Sau khi mở lại web, sinh viên đăng nhập rồi tải lượt đặt còn hạn và chuyến đang chạy từ `GET /api/student/journey`. Frontend dùng lại mã nhận xe đã lưu trong cùng trình duyệt khi khớp tài khoản, lượt đặt và hạn giữ. Token và mật khẩu ở bộ nhớ. Nếu API lỗi, màn hình cho phép thử tải lại.
 
 ## API đã gắn với UI
 
-| Luồng          | Request                                                    |
-| -------------- | ---------------------------------------------------------- |
-| Đăng ký        | POST /api/auth/register — studentId, email, password       |
-| Đăng nhập      | POST /api/auth/login — email, password                     |
-| Đăng xuất      | POST /api/auth/logout                                      |
-| Tìm Hub/xe     | POST /api/search/hubs                                      |
-| Chi tiết xe    | GET /api/vehicles/{vehicleId}                              |
-| Đặt/hủy xe     | POST /api/reservations; POST /api/reservations/{id}/cancel |
-| Đặt chỗ đỗ     | POST /api/parking-reservations                             |
-| Nhận xe        | POST /api/pickups                                          |
-| Theo dõi lệnh  | GET /api/operations/{operationId}                          |
-| Trả xe         | POST /api/rides/{rideId}/return                            |
-| Sạc xe cá nhân | POST /api/charging-requests                                |
+| Luồng         | Request                                                    |
+| ------------- | ---------------------------------------------------------- |
+| Đăng ký       | POST /api/auth/register — studentId, email, password       |
+| Đăng nhập     | POST /api/auth/login — email, password                     |
+| Đăng xuất     | POST /api/auth/logout                                      |
+| Tìm Hub/xe    | POST /api/search/hubs                                      |
+| Chi tiết xe   | GET /api/vehicles/{vehicleId}                              |
+| Đặt/hủy xe    | POST /api/reservations; POST /api/reservations/{id}/cancel |
+| Đặt chỗ đỗ    | POST /api/parking-reservations                             |
+| Nhận xe       | POST /api/pickups                                          |
+| Theo dõi lệnh | GET /api/operations/{operationId}                          |
+| Trả xe        | POST /api/rides/{rideId}/return                            |
+| Khung giờ sạc | GET /api/charging-requests/options                         |
+| Đăng ký sạc   | POST /api/charging-requests                                |
 
 Màn tìm Hub yêu cầu đăng nhập để lấy danh mục đầy đủ từ `GET /hubs`, sau đó người dùng bấm dùng vị trí và cấp quyền định vị. Không có ô nhập tọa độ hoặc bán kính. Chỉ tải danh sách sau khi lấy được vị trí thiết bị; từ chối quyền sẽ hiển thị hướng dẫn bật lại. Danh mục giữ tất cả Hub, kết hợp `POST /search/hubs` với vị trí thực để sắp xếp gần trước. Endpoint tìm xe giới hạn 50 km: Hub ngoài kết quả vẫn hiển thị, nhưng không tự suy diễn khoảng cách hay số xe. API tìm kiếm và chi tiết xe vẫn là public. Đặt xe mở chi tiết xe từ kết quả backend đã tải. Nếu chưa có kết quả, mở danh sách xe với liên kết tìm kiếm. Chi tiết được tải lại từ server trước khi đặt.
 

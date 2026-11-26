@@ -116,22 +116,42 @@ it('leaves the ride active until the return is confirmed', async () => {
   await api.sendCommand();
   expect(api.ride.status).toBe('COMPLETED');
 });
+it('marks a charging booking cancelled after the backend confirms release', async () => {
+  api.charging = [{ chargingRequestId: 'c/1', status: 'SCHEDULED' }];
+  send
+    .mockRejectedValueOnce(new ApiError(503, 'Release pending'))
+    .mockResolvedValueOnce(undefined);
+  await expect(api.cancelCharging('c/1')).rejects.toThrow('Release pending');
+  expect(api.charging[0].status).toBe('SCHEDULED');
+  await api.cancelCharging('c/1');
+  expect(api.charging[0].status).toBe('CANCELLED');
+  expect(send.mock.calls[1][0]).toBe('/charging-requests/c%2F1/cancel');
+});
+
 it('maps parking and charging payloads exactly to the contract', async () => {
   send.mockResolvedValueOnce({ parkingReservationId: 'p' });
-  await api.reserveParking('h', 's', '2026-12-01T10:00Z', '2026-12-01T11:00Z');
+  await api.reserveParking(
+    'my-bike',
+    'h',
+    's',
+    '2026-12-01T10:00Z',
+    '2026-12-01T11:00Z',
+  );
   expect(JSON.parse(send.mock.calls[0][1].body)).toEqual({
+    vehicleId: 'my-bike',
     hubId: 'h',
     spaceId: 's',
     startsAt: '2026-12-01T10:00:00.000Z',
     endsAt: '2026-12-01T11:00:00.000Z',
   });
   send.mockResolvedValueOnce({ chargingRequestId: 'c' });
-  await api.charge('my-bike', 'h', 80, '2026-12-01T10:00Z');
+  await api.charge('my-bike', 'h', 80, '2026-12-01T10:00Z', 'port-1');
   expect(JSON.parse(send.mock.calls[1][1].body)).toEqual({
     vehicleId: 'my-bike',
     hubId: 'h',
     targetBatteryPct: 80,
     requestedStartAt: '2026-12-01T10:00:00.000Z',
+    portId: 'port-1',
   });
 });
 it('clears session and private receipts on unauthorized response', async () => {
@@ -303,6 +323,81 @@ it('remembers the exact vehicle after a confirmed pickup and restores only for i
   expect(other.ride).toBeNull();
   expect(JSON.stringify({ ...sessionStorage })).not.toContain('test-token');
   sessionStorage.clear();
+});
+
+it('recovers the same unexpired pickup code in a new tab for the confirmed reservation', async () => {
+  const receipt = {
+    reservationId: 'reservation-reopened-tab',
+    vehicleId: 'bike-7',
+    status: 'ACTIVE',
+    expiresAt: new Date(Date.now() + 600000).toISOString(),
+  };
+  const start = new Date();
+  const end = new Date(+start + 3600000);
+  send.mockResolvedValueOnce({ ...receipt, pickupCode: '012345' });
+  try {
+    await api.reserve(receipt.vehicleId, start, end);
+    sessionStorage.clear();
+
+    const reopened = new MobileApi(send, 'contract');
+    reopened.session = session();
+    send.mockResolvedValueOnce({ reservation: receipt, ride: null });
+    await reopened.loadJourney();
+    expect(reopened.reservations[0].pickupCode).toBe('012345');
+
+    const other = new MobileApi(send, 'contract');
+    other.session = { ...session(), user: { accountId: 'another-account' } };
+    send.mockResolvedValueOnce({ reservation: receipt, ride: null });
+    await other.loadJourney();
+    expect(other.reservations[0].pickupCode).toBeUndefined();
+
+    send.mockResolvedValueOnce(undefined);
+    await reopened.cancel(receipt.reservationId);
+    expect(localStorage.getItem('emh-pickup-code:a')).toBeNull();
+  } finally {
+    localStorage.removeItem('emh-pickup-code:a');
+    sessionStorage.clear();
+  }
+});
+
+it('does not restore an expired pickup code or apply it to a different reservation', async () => {
+  const expiry = new Date(Date.now() + 600000).toISOString();
+  const receipt = {
+    reservationId: 'new-reservation',
+    vehicleId: 'bike-7',
+    status: 'ACTIVE',
+    expiresAt: expiry,
+  };
+  const key = 'emh-pickup-code:a';
+  try {
+    localStorage.setItem(
+      key,
+      JSON.stringify({
+        reservationId: 'different-reservation',
+        pickupCode: '012345',
+        expiresAt: Date.parse(expiry),
+      }),
+    );
+    send.mockResolvedValueOnce({ reservation: receipt, ride: null });
+    await api.loadJourney();
+    expect(api.reservations[0].pickupCode).toBeUndefined();
+
+    localStorage.setItem(
+      key,
+      JSON.stringify({
+        reservationId: receipt.reservationId,
+        pickupCode: '012345',
+        expiresAt: Date.now() - 1,
+      }),
+    );
+    send.mockResolvedValueOnce({ reservation: receipt, ride: null });
+    await api.loadJourney();
+    expect(api.reservations[0].pickupCode).toBeUndefined();
+    expect(localStorage.getItem(key)).toBeNull();
+  } finally {
+    localStorage.removeItem(key);
+    sessionStorage.clear();
+  }
 });
 
 it.each(['backend', 'contract', 'unexpected'])(

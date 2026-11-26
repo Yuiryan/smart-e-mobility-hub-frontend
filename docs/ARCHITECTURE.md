@@ -34,4 +34,4 @@ Auth adapter gửi các trường bắt buộc theo DTO backend hiện tại. Au
 
 `main.js` chỉ mount `mobile-api.js` hoặc `operator-api.js`; không còn nhánh giao diện demo trong điểm vào ứng dụng. Các module mock chỉ còn phục vụ kiểm thử. Màn tài khoản dùng chung renderer, bổ sung các trang thông tin, quyền riêng tư, quốc gia và bảo mật.
 
-Biên nhận đặt xe và chuyến đã xác nhận được lưu trong sessionStorage theo accountId, TTL 24 giờ. Khôi phục sau đăng nhập cùng tài khoản trong cùng tab; không lưu token hay mật khẩu. Đây là ngữ cảnh frontend, không thay API tải chuyến hiện hành. Backend kiểm tra mọi giao dịch. Nhận/trả xe chỉ thay đổi chuyến sau phản hồi thành công; mã xe được giữ từ yêu cầu nhận xe nếu phản hồi thiếu trường này.
+Sau đăng nhập, adapter đọc dữ liệu hiện hành từ `GET /api/student/journey`. Mã nhận xe lưu trong `localStorage` theo `accountId`, `reservationId` và hạn giữ. Adapter chỉ dùng lại mã khi backend trả về đúng lượt đặt còn hiệu lực, đồng thời xóa mã sau khi nhận xe hoặc hủy thành công. Token và mật khẩu ở bộ nhớ. Nhận hoặc trả xe chỉ thay đổi chuyến sau phản hồi thành công.

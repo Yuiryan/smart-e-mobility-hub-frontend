@@ -14,6 +14,7 @@ beforeEach(() => {
 afterEach(() => {
   dispose?.();
   dispose = null;
+  vi.useRealTimers();
   vi.restoreAllMocks();
   mobileApi.clear();
 });
@@ -59,6 +60,40 @@ it('does not invent data when the backend rejects a request', async () => {
   );
   expect(document.querySelector('.op-metrics')).toBeNull();
 });
+it('refreshes charging ports for the selected hub while resources are open', async () => {
+  vi.useFakeTimers();
+  vi.spyOn(operatorApi, 'hubs').mockResolvedValue({
+    items: [{ hubId: 'h', hubName: 'Hub' }],
+  });
+  vi.spyOn(operatorApi, 'vehicles').mockResolvedValue({ items: [] });
+  vi.spyOn(operatorApi, 'spaces').mockResolvedValue({ items: [] });
+  const available = { portId: 'p1', status: 'AVAILABLE' };
+  const ports = vi
+    .spyOn(operatorApi, 'ports')
+    .mockResolvedValue({ items: [available] })
+    .mockResolvedValueOnce({ items: [available] })
+    .mockResolvedValueOnce({
+      items: [{ ...available, vehicleId: 'bike_007', status: 'CHARGING' }],
+    });
+  const root = document.querySelector('#test-root');
+  dispose = mountOperatorApi(root, '/operator/resources');
+  await vi.advanceTimersByTimeAsync(0);
+  expect(root.textContent).toContain('AVAILABLE');
+
+  await vi.advanceTimersByTimeAsync(5000);
+  expect(root.textContent).toContain('CHARGING');
+  expect(root.textContent).toContain('bike_007');
+  expect(ports).toHaveBeenLastCalledWith('h', expect.any(AbortSignal));
+
+  await vi.advanceTimersByTimeAsync(5000);
+  expect(root.textContent).toContain('AVAILABLE');
+  expect(root.textContent).not.toContain('bike_007');
+
+  dispose();
+  dispose = null;
+  await vi.advanceTimersByTimeAsync(5000);
+  expect(ports).toHaveBeenCalledTimes(3);
+});
 it('does not overwrite another page with a late read response', async () => {
   let resolve;
   vi.spyOn(operatorApi, 'network').mockImplementation(
@@ -90,16 +125,20 @@ it('hides LOCK and UNLOCK from vehicle intervention action choices', async () =>
     '/operator/interventions',
   );
   await vi.waitFor(() =>
-    expect(document.querySelector('[data-live-form="resource"]')).not.toBeNull(),
+    expect(
+      document.querySelector('[data-live-form="resource"]'),
+    ).not.toBeNull(),
   );
   const form = document.querySelector('[data-live-form="resource"]');
   form.querySelector('[name="resourceId"]').value = 'bike_008';
   form.dispatchEvent(new Event('submit', { bubbles: true, cancelable: true }));
   await vi.waitFor(() =>
-    expect(document.querySelector('[data-live-form="intervene"]')).not.toBeNull(),
+    expect(
+      document.querySelector('[data-live-form="intervene"]'),
+    ).not.toBeNull(),
   );
-  const actions = [
-    ...document.querySelectorAll('[name="action"] option'),
-  ].map((o) => o.value);
+  const actions = [...document.querySelectorAll('[name="action"] option')].map(
+    (o) => o.value,
+  );
   expect(actions).toEqual(['MARK_MAINTENANCE', 'SET_BATTERY']);
 });

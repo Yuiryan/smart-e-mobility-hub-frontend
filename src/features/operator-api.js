@@ -21,6 +21,15 @@ const list = (response) => {
 const value = (v) => e(v == null ? '—' : v);
 const table = (headers, rows) =>
   `<div class="table-scroll"><table class="op-table"><thead><tr>${headers.map((h) => `<th>${e(h)}</th>`).join('')}</tr></thead><tbody>${rows.length ? rows.map((r) => `<tr>${r.map((c) => `<td>${c}</td>`).join('')}</tr>`).join('') : `<tr><td colspan="${headers.length}">${t('Chưa có dữ liệu.', 'No data.')}</td></tr>`}</tbody></table></div>`;
+const chargingPortTable = (ports) =>
+  table(
+    [t('Cổng sạc', 'Charger'), t('Xe', 'Vehicle'), t('Trạng thái', 'Status')],
+    ports.map((port) => [
+      value(port.portId),
+      value(port.vehicleId),
+      value(port.status),
+    ]),
+  );
 const select = (name, label, options, current) =>
   `<label>${e(label)}<select name="${name}">${options.map(([id, name]) => `<option value="${e(id)}" ${id === current ? 'selected' : ''}>${e(name)}</option>`).join('')}</select></label>`;
 const field = (name, label, type = 'text', initial = '', extra = 'required') =>
@@ -95,7 +104,7 @@ export function mountOperatorApi(root, path) {
         );
     }
   }
-  function fail(error) {
+  function fail(error, focus = true) {
     if (disposed || error.name === 'AbortError') return;
     const box = root.querySelector('#feedback');
     if (!box) return;
@@ -127,7 +136,7 @@ export function mountOperatorApi(root, path) {
         'beforeend',
         `<a class="button" href="#/account/operator">${t('Đăng nhập lại', 'Sign in again')}</a>`,
       );
-    box.focus();
+    if (focus) box.focus();
   }
   const hubOptions = () =>
     data.hubs.map((h) => [h.hubId, h.hubName || h.name || h.hubId]);
@@ -222,18 +231,7 @@ export function mountOperatorApi(root, path) {
             value(s.vehicleId),
             value(s.status),
           ]),
-        )}${table(
-          [
-            t('Cổng sạc', 'Charger'),
-            t('Xe', 'Vehicle'),
-            t('Trạng thái', 'Status'),
-          ],
-          data.ports.map((p) => [
-            value(p.portId),
-            value(p.vehicleId),
-            value(p.status),
-          ]),
-        )}</div>` +
+        )}<div data-live-charging-ports>${chargingPortTable(data.ports)}</div></div>` +
         `<a class="button secondary" href="#/operator/interventions">${t('Mở can thiệp vận hành', 'Open intervention')}</a>`
       );
     if (screen === 'alerts')
@@ -834,6 +832,31 @@ export function mountOperatorApi(root, path) {
   root.addEventListener('submit', submit);
   root.addEventListener('change', change);
   load();
+  let refreshingPorts = false;
+  const portsTimer =
+    screen === 'resources'
+      ? setInterval(async () => {
+          if (disposed || loading || busy || refreshingPorts || document.hidden)
+            return;
+          const portTable = root.querySelector('[data-live-charging-ports]');
+          if (!portTable || !state.hub) return;
+          const current = generation;
+          refreshingPorts = true;
+          try {
+            const ports = list(await api.ports(state.hub, signal));
+            if (disposed || current !== generation) return;
+            const markup = chargingPortTable(ports);
+            if (markup !== chargingPortTable(data.ports))
+              root.querySelector('[data-live-charging-ports]').innerHTML =
+                markup;
+            data.ports = ports;
+          } catch (error) {
+            if (current === generation) fail(error, false);
+          } finally {
+            refreshingPorts = false;
+          }
+        }, 5000)
+      : null;
   timer = setInterval(async () => {
     if (
       disposed ||
@@ -864,6 +887,7 @@ export function mountOperatorApi(root, path) {
     abort.abort();
     dialogs.forEach((d) => d.remove());
     clearInterval(timer);
+    clearInterval(portsTimer);
     root.removeEventListener('click', click);
     root.removeEventListener('submit', submit);
     root.removeEventListener('change', change);

@@ -210,13 +210,19 @@ Tất cả các response lỗi (mã $4xx$, $5xx$) đều **BẮT BUỘC** trả 
   _(Lưu ý: `pickupCode` chỉ được sinh và hiển thị 1 lần duy nhất trong response này)._
 - **Hủy đặt xe:** `POST /api/reservations/{reservationId}/cancel` (cùng header xác thực) → `200 OK`.
 
+**Khôi phục trạng thái hiện hành.** `GET /api/student/journey` nhận Bearer của sinh viên và trả `reservation` cho lượt đặt còn hiệu lực cùng `ride` cho chuyến `ACTIVE`. Mỗi trường có thể là `null`. Phản hồi lượt đặt gồm `reservationId`, `vehicleId`, `status`, `startsAt`, `endsAt`, `expiresAt`. Phản hồi chuyến gồm `rideId`, `vehicleId`, `status`, `startHubId`, `startedAt`, `initialBatteryPct`. Mã nhận xe và lịch sử nằm ngoài phản hồi này.
+
+`vehicles` gồm xe cá nhân và xe thuê đang sử dụng, với `vehicleId`, `ownership` và `canBookParking`.
+
 ### UC-04: Đặt trước Chỗ đỗ xe tại Hub
 
 - **Endpoint:** `POST /api/parking-reservations`
 - **Quyền:** `STUDENT`
+- Lượt giữ mới gắn `vehicleId` của xe thuộc tài khoản hoặc xe thuê đang sử dụng. Xe chưa có ô đỗ. Mỗi tài khoản chỉ giữ một ô còn hiệu lực trên mọi Hub.
 - **Request Body:**
   ```json
   {
+    "vehicleId": "bike_011",
     "hubId": "hub_01",
     "spaceId": "space_05",
     "startsAt": "2026-11-21T10:00:00Z",
@@ -227,6 +233,7 @@ Tất cả các response lỗi (mã $4xx$, $5xx$) đều **BẮT BUỘC** trả 
   ```json
   {
     "parkingReservationId": "pres_001",
+    "vehicleId": "bike_011",
     "hubId": "hub_01",
     "spaceId": "space_05",
     "status": "ACTIVE",
@@ -297,15 +304,20 @@ Tất cả các response lỗi (mã $4xx$, $5xx$) đều **BẮT BUỘC** trả 
   ```
   _(Lưu ý: Pin còn 18.5% < 20% nên vehicleStatus tự động chuyển thành `LOW_BATTERY`)._
 
-### UC-07: Đăng ký Sạc thông minh cho xe cá nhân
+### UC-07: Đăng ký Sạc thông minh
 
 - **Endpoint:** `POST /api/charging-requests`
 - **Quyền:** `STUDENT`
+- Xe cá nhân hoặc xe thuê đã nhận và đang sử dụng đều có thể đăng ký. `GET /api/charging-requests/options` nhận `vehicleId`, `hubId`, `targetBatteryPct`, `dayStart` và trả pin cùng danh sách `ports` và khung `slots` cho mỗi cổng. Khả dụng tính cả lịch Operator đã xác nhận.
+- FE gửi `portId` và `requestedStartAt` từ cổng và khung đã chọn. Backend kiểm tra lại trước khi xác nhận.
+- `GET /api/charging-requests` tải biên nhận sạc của tài khoản, gồm `checkInDeadline`. FE hiển thị thời gian xác nhận từ đầu khung đến mốc 10 phút, tối đa đến hết khung.
+- `POST /api/charging-requests/{id}/confirm` xác nhận bắt đầu và trả trạng thái `CHARGING`. `POST /api/charging-requests/{id}/cancel` trả `204` sau khi giải phóng phân bổ. Nếu chưa xác nhận khi quá hạn, BE tự hủy và cập nhật biên nhận.
 - **Request Body:**
   ```json
   {
     "vehicleId": "my_ebike_99",
     "hubId": "hub_01",
+    "portId": "port_03",
     "targetBatteryPct": 80.0,
     "requestedStartAt": "2026-11-21T10:00:00Z"
   }
@@ -314,6 +326,7 @@ Tất cả các response lỗi (mã $4xx$, $5xx$) đều **BẮT BUỘC** trả 
   ```json
   {
     "chargingRequestId": "chg_001",
+    "vehicleId": "my_ebike_99",
     "hubId": "hub_01",
     "portId": "port_03",
     "status": "SCHEDULED",

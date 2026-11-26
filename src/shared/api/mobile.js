@@ -9,6 +9,8 @@ const required = (value, field) => {
     throw new Error(`${field}: required`);
   return value.trim();
 };
+const isPickupCode = (value) =>
+  typeof value === 'string' && /^[0-9]{6}$/.test(value);
 export function rentalWindow(start, end) {
   const from = new Date(start),
     to = new Date(end);
@@ -16,7 +18,7 @@ export function rentalWindow(start, end) {
     throw new Error('Invalid rental time window');
   return { startsAt: from.toISOString(), endsAt: to.toISOString() };
 }
-// Session, receipts and idempotency keys deliberately live only in memory.
+// Session tokens and idempotency keys deliberately live only in memory.
 export class MobileApi {
   constructor(
     send = request,
@@ -31,9 +33,11 @@ export class MobileApi {
     this.hubs = [];
     this.discoveryOrigin = null;
     this.reservations = [];
+    this.studentVehicles = [];
     this.parking = [];
     this.charging = [];
     this.ride = null;
+    this.journeyLoaded = false;
     this.command = null;
     this.recovery = null;
   }
@@ -68,6 +72,91 @@ export class MobileApi {
     } catch {
       /* Ignore invalid local context. Backend validates every mutation. */
     }
+  }
+  get #pickupCodeStorageKey() {
+    const accountId = this.user?.accountId;
+    return accountId ? `emh-pickup-code:${accountId}` : null;
+  }
+  #rememberPickupCode(reservation) {
+    const key = this.#pickupCodeStorageKey;
+    const { reservationId, pickupCode, status } = reservation;
+    const expiresAt = Date.parse(reservation.expiresAt);
+    if (
+      !key ||
+      status !== 'ACTIVE' ||
+      !isPickupCode(pickupCode) ||
+      !(expiresAt > Date.now())
+    )
+      return;
+    try {
+      localStorage.setItem(
+        key,
+        JSON.stringify({ reservationId, pickupCode, expiresAt }),
+      );
+    } catch {
+      /* The current tab can still use its receipt when storage is unavailable. */
+    }
+  }
+  #storedPickupCode(reservation) {
+    const key = this.#pickupCodeStorageKey;
+    if (!key) return;
+    try {
+      const saved = JSON.parse(localStorage.getItem(key));
+      if (!saved) return;
+      const now = Date.now();
+      if (!(saved.expiresAt > now) || !isPickupCode(saved.pickupCode)) {
+        localStorage.removeItem(key);
+        return;
+      }
+      if (
+        reservation &&
+        reservation.reservationId === saved.reservationId &&
+        Date.parse(reservation.expiresAt) > now
+      )
+        return saved.pickupCode;
+    } catch {
+      /* Ignore unreadable local storage. */
+    }
+  }
+  #forgetPickupCode(reservationId) {
+    const key = this.#pickupCodeStorageKey;
+    if (!key || !reservationId) return;
+    try {
+      const saved = JSON.parse(localStorage.getItem(key));
+      if (saved?.reservationId === reservationId) localStorage.removeItem(key);
+    } catch {
+      /* The backend has already closed the reservation. */
+    }
+  }
+  async loadJourney(signal) {
+    const session = this.session;
+    const data = await this.call('/student/journey', undefined, { signal });
+    if (signal?.aborted || this.session !== session) return;
+    const { reservation, ride } = data || {};
+    if (
+      (reservation !== null &&
+        (!reservation?.reservationId || reservation.status !== 'ACTIVE')) ||
+      (ride !== null && (!ride?.rideId || ride.status !== 'ACTIVE'))
+    )
+      throw new Error('Invalid active journey response');
+    const saved = this.reservations.find(
+      (r) => r.reservationId === reservation?.reservationId,
+    );
+    const storedCode = this.#storedPickupCode(reservation);
+    this.reservations = this.reservations.filter((r) => r.status !== 'ACTIVE');
+    if (reservation) {
+      const pickupCode =
+        Date.parse(reservation.expiresAt) > Date.now()
+          ? saved?.pickupCode || storedCode
+          : undefined;
+      const receipt = { ...reservation, ...(pickupCode ? { pickupCode } : {}) };
+      this.reservations.unshift(receipt);
+      if (!storedCode && saved?.pickupCode) this.#rememberPickupCode(receipt);
+    }
+    this.ride = ride;
+    this.studentVehicles = Array.isArray(data.vehicles) ? data.vehicles : [];
+    this.journeyLoaded = true;
+    this.saveJourney();
   }
   get user() {
     return this.session?.user || null;
@@ -259,13 +348,18 @@ export class MobileApi {
       ...data,
       vehicleId: data.vehicleId || vehicleId,
     });
+    this.#rememberPickupCode(data);
     this.saveJourney();
     return data;
   }
   async cancel(id) {
     await this.call(`/reservations/${encodeURIComponent(id)}/cancel`, {});
     const receipt = this.reservations.find((r) => r.reservationId === id);
-    if (receipt) receipt.status = 'CANCELLED';
+    if (receipt) {
+      receipt.status = 'CANCELLED';
+      delete receipt.pickupCode;
+    }
+    this.#forgetPickupCode(id);
     this.saveJourney();
   }
   async hubCatalog(signal) {
@@ -292,8 +386,9 @@ export class MobileApi {
       throw new Error('Invalid parking spaces response');
     return data.items;
   }
-  async reserveParking(hubId, spaceId, start, end) {
+  async reserveParking(vehicleId, hubId, spaceId, start, end) {
     const data = await this.call('/parking-reservations', {
+      vehicleId: required(vehicleId, 'vehicleId'),
       hubId: required(hubId, 'hubId'),
       spaceId: required(spaceId, 'spaceId'),
       ...rentalWindow(start, end),
@@ -303,7 +398,59 @@ export class MobileApi {
     this.parking.unshift(data);
     return data;
   }
-  async charge(vehicleId, hubId, target, start) {
+  async chargingOptions(vehicleId, hubId, targetBatteryPct, dayStart, signal) {
+    const params = new URLSearchParams({
+      vehicleId,
+      hubId,
+      targetBatteryPct,
+      dayStart,
+    });
+    const data = await this.call(
+      `/charging-requests/options?${params}`,
+      undefined,
+      { signal },
+    );
+    if (!Array.isArray(data?.ports))
+      throw new Error('Invalid charging options response');
+    return data;
+  }
+  async cancelCharging(id) {
+    await this.call(`/charging-requests/${encodeURIComponent(id)}/cancel`, {});
+    this.charging = this.charging.map((booking) =>
+      booking.chargingRequestId === id
+        ? { ...booking, status: 'CANCELLED' }
+        : booking,
+    );
+  }
+  async loadChargingReceipts(signal) {
+    const session = this.session;
+    const previous = this.charging;
+    const data = await this.call('/charging-requests', undefined, { signal });
+    if (!Array.isArray(data))
+      throw new Error('Invalid charging receipts response');
+    if (
+      signal?.aborted ||
+      this.session !== session ||
+      this.charging !== previous ||
+      JSON.stringify(previous) === JSON.stringify(data)
+    )
+      return false;
+    this.charging = data;
+    return true;
+  }
+  async confirmCharging(id) {
+    const data = await this.call(
+      `/charging-requests/${encodeURIComponent(id)}/confirm`,
+      {},
+    );
+    if (data?.chargingRequestId !== id || data.status !== 'CHARGING')
+      throw new Error('Invalid charging confirmation response');
+    this.charging = this.charging.map((booking) =>
+      booking.chargingRequestId === id ? data : booking,
+    );
+    return data;
+  }
+  async charge(vehicleId, hubId, target, start, portId) {
     const requestedStartAt = new Date(start).toISOString(),
       targetBatteryPct = Number(target);
     if (!(targetBatteryPct > 0 && targetBatteryPct <= 100))
@@ -313,9 +460,15 @@ export class MobileApi {
       hubId: required(hubId, 'hubId'),
       targetBatteryPct,
       requestedStartAt,
+      ...(portId ? { portId: required(portId, 'portId') } : {}),
     });
     if (!data?.chargingRequestId) throw new Error('Invalid charging response');
-    this.charging.unshift(data);
+    this.charging = [
+      data,
+      ...this.charging.filter(
+        (booking) => booking.chargingRequestId !== data.chargingRequestId,
+      ),
+    ];
     return data;
   }
   async pickup(vehicleId, reservationId, pickupCode) {
@@ -386,15 +539,26 @@ export class MobileApi {
       ...data,
       status: command.kind === 'RETURN' ? 'COMPLETED' : 'ACTIVE',
     };
+    this.studentVehicles = this.studentVehicles.filter(
+      (v) => v.ownership !== 'SHARED',
+    );
     if (command.kind === 'PICKUP') {
+      this.studentVehicles.push({
+        vehicleId: this.ride.vehicleId,
+        ownership: 'SHARED',
+        canBookParking: true,
+      });
+      const reservationId = command.body.reservationId;
       const r = this.reservations.find(
-        (r) => r.reservationId === command.body.reservationId,
+        (r) => reservationId && r.reservationId === reservationId,
       );
       this.removeListedVehicle(command.body.vehicleId);
       if (r) {
         r.status = 'USED';
         r.rideId = data.rideId;
+        delete r.pickupCode;
       }
+      this.#forgetPickupCode(reservationId);
     } else if (command.kind === 'RETURN') {
       const receipt = this.reservations.find(
         (r) =>

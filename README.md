@@ -28,7 +28,7 @@ Lệnh kiểm tra định dạng, lint, test và build. Không tự triển khai
 
 ## Giới hạn tích hợp
 
-Contract hiện chưa có API tải chuyến đang chạy/lịch sử. Frontend giữ biên nhận và chuyến đã xác nhận trong `sessionStorage` theo tài khoản, tối đa 24 giờ, trong cùng tab. Đăng nhập lại cùng tài khoản có thể khôi phục ngữ cảnh này. Backend vẫn xác thực quyền và trạng thái mỗi giao dịch; dữ liệu lưu không phải xác nhận mới. Đóng tab, hết hạn lưu hoặc đổi thiết bị không khôi phục được chuyến bằng cơ chế này. Token và mật khẩu chỉ ở bộ nhớ.
+Sau khi đăng nhập, frontend đọc lượt đặt còn hiệu lực và chuyến `ACTIVE` của tài khoản từ `GET /api/student/journey`. Chuyến đang chạy hiện ở Trang chủ và Lượt đặt để tiếp tục trả xe. Mã nhận xe từ biên nhận được lưu theo tài khoản và lượt đặt trong cùng trình duyệt để dùng lại sau khi đóng tab, trong hạn giữ do backend trả về. Màn nhận xe hiển thị xác nhận thành công sau khi backend báo đã mở khóa. Token và mật khẩu chỉ ở bộ nhớ.
 
 Các module mock còn lại phục vụ kiểm thử và không được mount bởi ứng dụng. Không có giao dịch giả thay thế khi API lỗi. Chỉ kết quả backend xác nhận mới hoàn tất nhận/trả xe. Chưa kiểm chứng kết nối backend thực trong lần sửa này.
 

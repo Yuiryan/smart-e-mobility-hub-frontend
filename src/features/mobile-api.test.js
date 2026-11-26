@@ -1,7 +1,13 @@
 import { afterEach, expect, it, vi } from 'vitest';
 import { mountMobileApi } from './mobile-api.js';
 import { mobileApi } from '../shared/api/mobile.js';
+import * as ui from '../shared/ui.js';
 let dispose;
+const parkingVehicle = {
+  vehicleId: 'bike-7',
+  ownership: 'SHARED',
+  canBookParking: true,
+};
 afterEach(() => {
   dispose?.();
   mobileApi.clear();
@@ -14,6 +20,117 @@ it('renders API mode with the mobile design and no demo banner', () => {
   expect(document.querySelector('.student-frame')).not.toBeNull();
   expect(document.querySelector('.welcome-logo')).not.toBeNull();
   expect(document.body.textContent).not.toContain('DEMO');
+});
+it('loads an active trip from the backend in a fresh tab and offers to return it', async () => {
+  mobileApi.session = {
+    sessionToken: 'test-token',
+    expiresAt: new Date(Date.now() + 600000).toISOString(),
+    user: { role: 'STUDENT', accountId: 'student' },
+  };
+  const send = vi.spyOn(mobileApi, 'send').mockResolvedValue({
+    reservation: null,
+    ride: { rideId: 'ride-8', vehicleId: 'bike_008', status: 'ACTIVE' },
+  });
+  vi.spyOn(mobileApi, 'loadChargingReceipts').mockResolvedValue(false);
+  document.body.innerHTML = '<div id="root"></div>';
+  const root = document.querySelector('#root');
+  dispose = mountMobileApi(root, '/student/reservations');
+  await vi.waitFor(() =>
+    expect(
+      root.querySelector('main a[href="#/student/return"]'),
+    ).not.toBeNull(),
+  );
+  expect(root.textContent).toContain('bike_008');
+  expect(send).toHaveBeenCalledWith(
+    '/student/journey',
+    expect.objectContaining({
+      headers: { Authorization: 'Bearer test-token' },
+    }),
+  );
+});
+it.each([201, 202])(
+  'shows the pickup receipt after device confirmation following HTTP %s',
+  async (status) => {
+    mobileApi.session = {
+      sessionToken: 'test-token',
+      expiresAt: new Date(Date.now() + 600000).toISOString(),
+      user: { role: 'STUDENT', accountId: 'pickup-test' },
+    };
+    mobileApi.journeyLoaded = true;
+    vi.spyOn(ui, 'confirmAction').mockResolvedValue(true);
+    const ride = { rideId: 'ride-8', vehicleId: 'bike_008', status: 'ACTIVE' };
+    const send = vi.spyOn(mobileApi, 'send').mockResolvedValueOnce({
+      status,
+      data: status === 201 ? ride : { operationId: 'pickup-8' },
+    });
+    document.body.innerHTML = '<div id="root"></div>';
+    const root = document.querySelector('#root');
+    dispose = mountMobileApi(root, '/student/pickup');
+    const form = root.querySelector('form[data-api="pickup"]');
+    form.elements.vehicleId.value = 'bike_008';
+    form.requestSubmit();
+
+    await vi.waitFor(() =>
+      expect(mobileApi.command?.state).toBe(
+        status === 201 ? 'SUCCEEDED' : 'PENDING',
+      ),
+    );
+
+    if (status === 202) {
+      const poll = '[data-api-action="poll"]';
+      await vi.waitFor(() => expect(root.querySelector(poll)).not.toBeNull());
+      expect(root.querySelector('.success-card')).toBeNull();
+      send.mockResolvedValueOnce({
+        operationId: 'pickup-8',
+        status: 'SUCCEEDED',
+        result: ride,
+      });
+      root.querySelector(poll).click();
+    }
+
+    await vi.waitFor(() =>
+      expect(root.querySelector('.success-card')).not.toBeNull(),
+    );
+    expect(root.querySelector('.success-card').textContent).toContain(
+      'bike_008',
+    );
+    expect(
+      root.querySelector('main a[href="#/student/return"]'),
+    ).not.toBeNull();
+    expect(root.querySelector('form[data-api="pickup"]')).toBeNull();
+    sessionStorage.removeItem('emh-journey:pickup-test');
+  },
+);
+it('retries loading the journey and clears the old trip when the backend has no active records', async () => {
+  mobileApi.session = {
+    sessionToken: 'test-token',
+    expiresAt: new Date(Date.now() + 600000).toISOString(),
+    user: { role: 'STUDENT', accountId: 'other-student' },
+  };
+  mobileApi.ride = {
+    rideId: 'old-ride',
+    vehicleId: 'old-bike',
+    status: 'ACTIVE',
+  };
+  mobileApi.reservations = [
+    { reservationId: 'picked-up', vehicleId: 'old-bike', status: 'PICKED_UP' },
+  ];
+  const send = vi
+    .spyOn(mobileApi, 'send')
+    .mockRejectedValueOnce(new Error('Network interrupted'))
+    .mockResolvedValueOnce({ reservation: null, ride: null });
+  vi.spyOn(mobileApi, 'loadChargingReceipts').mockResolvedValue(false);
+  document.body.innerHTML = '<div id="root"></div>';
+  const root = document.querySelector('#root');
+  dispose = mountMobileApi(root, '/student/reservations');
+  const retry = '[data-api-action="reload-journey"]';
+  await vi.waitFor(() => expect(root.querySelector(retry)).not.toBeNull());
+  root.querySelector(retry).click();
+  await vi.waitFor(() => expect(mobileApi.journeyLoaded).toBe(true));
+  expect(send).toHaveBeenCalledTimes(2);
+  expect(mobileApi.ride).toBeNull();
+  expect(root.textContent).not.toContain('old-bike');
+  expect(root.querySelector('main a[href="#/student/return"]')).toBeNull();
 });
 it('ignores a delayed detail response after leaving the route', async () => {
   mobileApi.session = { user: { role: 'STUDENT' } };
@@ -179,6 +296,7 @@ it('selects a Hub with no vehicles and returns to the loaded Hub list', async ()
     { spaceId: 'A-02', hubId: 'empty', status: 'OCCUPIED', blocked: false },
     { spaceId: 'A-03', hubId: 'empty', status: 'AVAILABLE', blocked: true },
   ]);
+  mobileApi.studentVehicles = [parkingVehicle];
   document.querySelector('[data-api-action="hub-parking"]').click();
   await vi.waitFor(() =>
     expect(document.querySelector('[data-api="parking"]')).not.toBeNull(),
@@ -233,6 +351,7 @@ it.each([
   'loads real parking spaces for %s without replacing search results',
   async (path, formType) => {
     mobileApi.session = { user: { role: 'STUDENT' } };
+    mobileApi.studentVehicles = [parkingVehicle];
     mobileApi.ride = {
       rideId: 'ride-1',
       vehicleId: 'bike-7',
@@ -272,6 +391,7 @@ it.each([
 
 it('shows unavailable spaces without allowing a reservation', async () => {
   mobileApi.session = { user: { role: 'STUDENT' } };
+  mobileApi.studentVehicles = [parkingVehicle];
   vi.spyOn(mobileApi, 'hubCatalog').mockResolvedValue([
     { hubId: 'h1', hubName: 'Hub 1' },
   ]);
@@ -290,6 +410,7 @@ it('shows unavailable spaces without allowing a reservation', async () => {
 
 it('allows retrying a failed parking Hub catalog request', async () => {
   mobileApi.session = { user: { role: 'STUDENT' } };
+  mobileApi.studentVehicles = [parkingVehicle];
   vi.spyOn(mobileApi, 'hubCatalog')
     .mockRejectedValueOnce(new Error('Hub catalog unavailable'))
     .mockResolvedValueOnce([{ hubId: 'h1', hubName: 'Hub 1' }]);
@@ -306,11 +427,50 @@ it('allows retrying a failed parking Hub catalog request', async () => {
   );
 });
 
-it('loads backend Hub choices for charging instead of requiring a typed Hub ID', async () => {
+it('selects a rented bike, a charging port and an available window on the same screen', async () => {
   mobileApi.session = { user: { role: 'STUDENT' } };
+  mobileApi.studentVehicles = [
+    parkingVehicle,
+    { vehicleId: 'personal', ownership: 'PRIVATE', canBookParking: false },
+  ];
   const catalog = vi
     .spyOn(mobileApi, 'hubCatalog')
     .mockResolvedValue([{ hubId: 'h1', hubName: 'Hub KTX B' }]);
+  const start = new Date(Date.now() + 3600000).toISOString();
+  const end = new Date(Date.parse(start) + 1800000).toISOString();
+  const loadOptions = vi.spyOn(mobileApi, 'chargingOptions').mockResolvedValue({
+    currentBatteryPct: 35,
+    ports: [
+      {
+        portId: 'busy',
+        portName: 'Port busy',
+        slots: [
+          {
+            startAt: start,
+            endAt: end,
+            estimatedDurationMinutes: 30,
+            available: false,
+          },
+        ],
+      },
+      {
+        portId: 'free',
+        portName: 'Port free',
+        slots: [
+          {
+            startAt: start,
+            endAt: end,
+            estimatedDurationMinutes: 30,
+            available: true,
+          },
+        ],
+      },
+    ],
+  });
+  const charge = vi
+    .spyOn(mobileApi, 'charge')
+    .mockResolvedValue({ chargingRequestId: 'c1' });
+  vi.spyOn(ui, 'confirmAction').mockResolvedValue(true);
   document.body.innerHTML = '<div id="root"></div>';
   dispose = mountMobileApi(
     document.querySelector('#root'),
@@ -325,6 +485,90 @@ it('loads backend Hub choices for charging instead of requiring a typed Hub ID',
       .textContent,
   ).toBe('Hub KTX B');
   expect(document.querySelector('input[name="hubId"]')).toBeNull();
+  const choose = (name, value) => {
+    const field = document.querySelector(`[name="${name}"]`);
+    field.value = value;
+    field.dispatchEvent(new Event('change', { bubbles: true }));
+  };
+  choose('vehicleId', 'bike-7');
+  await vi.waitFor(() =>
+    expect(document.querySelector('option[value="free"]')).not.toBeNull(),
+  );
+  expect(loadOptions).toHaveBeenCalledWith(
+    'bike-7',
+    'h1',
+    '80',
+    expect.any(String),
+    expect.any(AbortSignal),
+  );
+  choose('portId', 'busy');
+  expect(document.querySelector('[name="startAt"]').disabled).toBe(true);
+  choose('portId', 'free');
+  document.querySelector('[name="startAt"]').click();
+  document.querySelector('form[data-api="charging"]').requestSubmit();
+  await vi.waitFor(() =>
+    expect(charge).toHaveBeenCalledWith('bike-7', 'h1', '80', start, 'free'),
+  );
+});
+
+it('shows the confirmed charge and counts down to its scheduled start', () => {
+  mobileApi.session = { user: { role: 'STUDENT' } };
+  mobileApi.charging = [
+    {
+      chargingRequestId: 'c',
+      vehicleId: 'bike-7',
+      status: 'SCHEDULED',
+      hubId: 'h',
+      portId: 'p2',
+      scheduledStartAt: new Date(Date.now() + 300000).toISOString(),
+      scheduledEndAt: new Date(Date.now() + 600000).toISOString(),
+    },
+  ];
+  document.body.innerHTML = '<div id="root"></div>';
+  const root = document.querySelector('#root');
+  dispose = mountMobileApi(root, '/student/charging-confirmed');
+  expect(root.querySelector('.success-card')).not.toBeNull();
+  expect(root.textContent).toContain('p2');
+  expect(
+    root.querySelector('[data-charge-start] [role="timer"]'),
+  ).not.toBeNull();
+});
+it('confirms charging during the check-in window and removes the cancel action', async () => {
+  const now = Date.now();
+  mobileApi.session = {
+    sessionToken: 'test-token',
+    expiresAt: new Date(now + 3600000).toISOString(),
+    user: { role: 'STUDENT' },
+  };
+  const booking = {
+    chargingRequestId: 'charge-1',
+    vehicleId: 'bike-7',
+    status: 'SCHEDULED',
+    hubId: 'Hub-1',
+    portId: 'Port-1',
+    scheduledStartAt: new Date(now - 60000).toISOString(),
+    scheduledEndAt: new Date(now + 3600000).toISOString(),
+    checkInDeadline: new Date(now + 540000).toISOString(),
+  };
+  mobileApi.charging = [booking];
+  const send = vi
+    .spyOn(mobileApi, 'send')
+    .mockResolvedValue({ ...booking, status: 'CHARGING' });
+  document.body.innerHTML = '<div id="root"></div>';
+  const root = document.querySelector('#root');
+  dispose = mountMobileApi(root, '/student/reservations');
+  expect(root.querySelector('[data-cancel-charging]')).not.toBeNull();
+  const confirm = root.querySelector('[data-confirm-charging]');
+  expect(confirm.disabled).toBe(false);
+  confirm.click();
+  await vi.waitFor(() =>
+    expect(root.querySelector('[data-confirm-charging]')).toBeNull(),
+  );
+  expect(root.querySelector('[data-cancel-charging]')).toBeNull();
+  expect(send).toHaveBeenCalledWith(
+    '/charging-requests/charge-1/confirm',
+    expect.objectContaining({ method: 'POST' }),
+  );
 });
 it('shows backend ISO expiry and rental times for parking receipts', () => {
   mobileApi.session = { user: { role: 'STUDENT' } };
