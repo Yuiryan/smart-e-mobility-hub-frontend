@@ -397,34 +397,146 @@ export function mountOperatorApi(root, path) {
         )
       );
     }
-    if (screen === 'incidents')
+    if (screen === 'incidents') {
+      const selected =
+        data.incidents.find((i) => i.incidentId === state.selectedIncidentId) ||
+        data.incidents[0];
+      const allDevices = [
+        ...(data.vehicles || []).map((v) => ({
+          type: 'VEHICLE',
+          typeLabel: t('Phương tiện', 'Vehicle'),
+          id: v.vehicleId,
+          hubId: v.hubId || state.hub,
+          status: v.status,
+        })),
+        ...(data.ports || []).map((p) => ({
+          type: 'CHARGING_PORT',
+          typeLabel: t('Cổng sạc', 'Charging port'),
+          id: p.portId,
+          hubId: p.hubId || state.hub,
+          status: p.status,
+        })),
+        ...(data.spaces || []).map((s) => ({
+          type: 'PARKING_SPACE',
+          typeLabel: t('Chỗ đỗ', 'Parking space'),
+          id: s.spaceId,
+          hubId: s.hubId || state.hub,
+          status: s.blocked ? 'MAINTENANCE (BLOCKED)' : s.status,
+        })),
+      ];
       return (
         title(t('Sự cố thiết bị', 'Device incidents')) +
         table(
           [
             t('Thiết bị', 'Device'),
             'Hub',
-            t('Cảnh báo', 'Description'),
+            t('Cảnh báo / Mô tả', 'Description'),
             t('Trạng thái', 'Status'),
+            t('Giai đoạn bảo trì (Enum)', 'Maintenance Stage (Enum)'),
             t('Thao tác', 'Actions'),
           ],
           data.incidents.map((i) => [
-            value(i.resourceId),
+            button('select-incident', i.resourceId, i.incidentId),
             value(i.hubId),
-            value(i.description),
+            value(
+              i.stageHistory?.length
+                ? i.stageHistory[i.stageHistory.length - 1].description
+                : i.description,
+            ),
             value(i.status),
+            value(
+              i.status === 'MAINTENANCE'
+                ? i.repairStage || 'NOT_INSPECTED'
+                : i.repairStage || '—',
+            ),
             i.allowedActions
-              .map((a) =>
-                button('incident-' + a.toLowerCase(), a, i.incidentId),
-              )
+              .map((a) => {
+                const labelText =
+                  a === 'UPDATE_STAGE'
+                    ? t('Chọn giai đoạn (Stage)', 'Select stage')
+                    : a === 'CLEAR_MAINTENANCE'
+                      ? 'CLEAR_MAINTENANCE'
+                      : a;
+                return button('incident-' + a.toLowerCase(), labelText, i.incidentId);
+              })
               .join(' '),
           ]),
         ) +
-        `<details class="op-extra"><summary>${t('Ghi nhận sự cố', 'Report incident')}</summary>${form(
+        (selected
+          ? `<section class="panel"><h2>${e(selected.resourceId)} · ${e(selected.status)}${selected.repairStage ? ' · ' + e(selected.repairStage) : ''}</h2><p>${e(selected.description)}</p>${table(
+              [
+                t('Giai đoạn (Enum)', 'Stage (Enum)'),
+                t('Mô tả chi tiết (Description)', 'Stage description'),
+                t('Cập nhật lúc', 'Updated at'),
+              ],
+              (selected.stageHistory?.length
+                ? selected.stageHistory
+                : [
+                    {
+                      stage: selected.repairStage || selected.status,
+                      description: selected.description,
+                      updatedAt: selected.updatedAt || selected.createdAt,
+                    },
+                  ]
+              ).map((h) => [
+                value(h.stage),
+                value(h.description),
+                value(h.updatedAt),
+              ]),
+            )}</section>`
+          : '') +
+        `<section class="panel"><h2>${t('Danh sách thiết bị tại Hub (Bấm trực tiếp trên dòng để Báo sự cố / Đưa vào bảo trì)', 'Hub devices (Click inline to Report incident / Send to maintenance)')}</h2>` +
+        select('hub', 'Mobility Hub', hubOptions(), state.hub) +
+        table(
+          [
+            t('Loại thiết bị', 'Device type'),
+            t('Mã thiết bị', 'Device ID'),
+            t('Trạng thái hiện tại', 'Current status'),
+            t('Giai đoạn bảo trì', 'Maintenance stage'),
+            t('Thao tác trực tiếp', 'Inline actions'),
+          ],
+          allDevices.map((dev) => {
+            const activeInc = data.incidents.find(
+              (inc) =>
+                inc.resourceId === dev.id &&
+                (inc.status === 'OPEN' || inc.status === 'MAINTENANCE'),
+            );
+            return [
+              value(dev.typeLabel),
+              activeInc
+                ? button('select-incident', dev.id, activeInc.incidentId)
+                : value(dev.id),
+              value(dev.status),
+              value(
+                activeInc?.status === 'MAINTENANCE'
+                  ? activeInc.repairStage || 'NOT_INSPECTED'
+                  : '—',
+              ),
+              activeInc
+                ? activeInc.allowedActions
+                    .map((a) => {
+                      const labelText =
+                        a === 'UPDATE_STAGE'
+                          ? t('Chọn giai đoạn (Stage)', 'Select stage')
+                          : a;
+                      return button(
+                        'incident-' + a.toLowerCase(),
+                        labelText,
+                        activeInc.incidentId,
+                      );
+                    })
+                    .join(' ')
+                : `<button type="button" class="secondary" data-live-op="quick-incident" data-type="${e(dev.type)}" data-id="${e(dev.id)}">${t('Báo sự cố / Bảo trì', 'Report incident / Maintenance')}</button>`,
+            ];
+          }),
+        ) +
+        `</section>` +
+        `<details class="op-extra"><summary>${t('Ghi nhận sự cố thủ công', 'Report incident manually')}</summary>${form(
           'incident',
           select('resourceType', t('Loại thiết bị', 'Device type'), [
             ['VEHICLE', t('Phương tiện', 'Vehicle')],
             ['CHARGING_PORT', t('Cổng sạc', 'Charger')],
+            ['PARKING_SPACE', t('Chỗ đỗ', 'Parking space')],
           ]) +
             field('resourceId', t('Mã thiết bị', 'Device ID')) +
             select('severity', t('Mức độ', 'Severity'), [
@@ -436,6 +548,7 @@ export function mountOperatorApi(root, path) {
           t('Ghi nhận', 'Report'),
         )}</details>${refresh}`
       );
+    }
     if (screen === 'charging') {
       const p = state.proposal;
       return (
@@ -538,13 +651,15 @@ export function mountOperatorApi(root, path) {
       }
       if (screen === 'overview') data.network = await api.network(signal);
       if (
-        ['resources', 'dispatch', 'charging', 'simulation'].includes(screen)
+        ['resources', 'incidents', 'dispatch', 'charging', 'simulation'].includes(
+          screen,
+        )
       ) {
         data.hubs = list(await api.hubs(signal));
         state.hub ||= data.hubs[0]?.hubId;
         state.source ||= data.hubs[0]?.hubId;
       }
-      if (screen === 'resources' && state.hub)
+      if (['resources', 'incidents'].includes(screen) && state.hub)
         [data.vehicles, data.spaces, data.ports] = (
           await Promise.all([
             api.vehicles(state.hub, signal),
@@ -754,14 +869,73 @@ export function mountOperatorApi(root, path) {
       };
       return;
     }
+    if (a === 'select-incident') {
+      state.selectedIncidentId = b.dataset.id;
+      draw(contents());
+      return;
+    }
+    if (a === 'quick-incident') {
+      const resourceType = b.dataset.type,
+        resourceId = b.dataset.id;
+      const d = document.createElement('dialog');
+      d.innerHTML =
+        form(
+          'quick-create-incident',
+          `<p><strong>${t('Báo sự cố cho', 'Report incident for')}: ${e(resourceId)}</strong></p>` +
+            select('severity', t('Mức độ', 'Severity'), [
+              ['LOW', t('Thấp', 'Low')],
+              ['MEDIUM', t('Trung bình', 'Medium')],
+              ['HIGH', t('Cao', 'High')],
+            ]) +
+            field('description', t('Mô tả sự cố', 'Incident description')),
+          t('Ghi nhận sự cố', 'Report incident'),
+        ) + button('close-dialog', t('Hủy', 'Cancel'));
+      dialogs.add(d);
+      document.body.append(d);
+      d.showModal();
+      d.querySelector('[data-live-op=close-dialog]').onclick = () => d.remove();
+      d.addEventListener('cancel', () => d.remove());
+      d.onsubmit = (event) => {
+        event.preventDefault();
+        const f = new FormData(event.target);
+        d.remove();
+        if (!disposed)
+          run(() =>
+            api.createIncident({
+              resourceType,
+              resourceId,
+              severity: f.get('severity'),
+              description: f.get('description'),
+            }),
+          );
+      };
+      return;
+    }
     if (a.startsWith('incident-')) {
       const action = a.slice(9),
         incidentId = b.dataset.id;
+      const currentIncident = data.incidents.find(
+        (i) => i.incidentId === incidentId,
+      );
+      const isStageUpdate = action === 'update_stage' || action === 'stage';
       const d = document.createElement('dialog');
       d.innerHTML =
         form(
           'note',
-          field('note', t('Lý do / ghi chú', 'Reason / note')),
+          (isStageUpdate
+            ? select(
+                'stage',
+                t('Tình trạng kiểm tra / sửa chữa', 'Inspection / repair stage'),
+                [
+                  ['NOT_INSPECTED', 'NOT_INSPECTED (Chưa kiểm tra)'],
+                  ['INSPECTED', 'INSPECTED (Đã kiểm tra)'],
+                  ['REPAIRING', 'REPAIRING (Đang sửa)'],
+                  ['REPAIRED', 'REPAIRED (Đã sửa xong)'],
+                ],
+                currentIncident?.repairStage || 'INSPECTED',
+              )
+            : '') +
+            field('note', t('Mô tả / ghi chú giai đoạn', 'Stage description / note')),
           t('Xác nhận', 'Confirm'),
         ) + button('close-dialog', t('Hủy', 'Cancel'));
       dialogs.add(d);
@@ -771,12 +945,15 @@ export function mountOperatorApi(root, path) {
       d.addEventListener('cancel', () => d.remove());
       d.onsubmit = (event) => {
         event.preventDefault();
-        const note = new FormData(event.target).get('note');
+        const formData = new FormData(event.target);
+        const note = formData.get('note');
+        const stage = formData.get('stage');
         d.remove();
+        state.selectedIncidentId = incidentId;
         if (!disposed)
           run(async () => {
             const incident = await api.incident(incidentId, signal);
-            return api.incidentAction(incident, action, note);
+            return api.incidentAction(incident, action, note, stage);
           });
       };
       return;

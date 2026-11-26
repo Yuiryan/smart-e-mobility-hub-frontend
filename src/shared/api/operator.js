@@ -191,15 +191,25 @@ export class OperatorApi {
   createIncident(body) {
     return this.mutate('/operator/incidents', body);
   }
-  incidentAction(incident, action, note) {
+  incidentAction(incident, action, note, stage) {
     const body = { expectedVersion: incident.version };
+    let endpoint = action;
     if (action === 'dismiss') body.dismissNote = note;
-    else if (['maintenance', 'resolve'].includes(action)) {
+    else if (action === 'update_stage' || action === 'stage') {
+      endpoint = 'stage';
+      body.stage = stage;
+      body.description = note;
+    } else if (
+      ['maintenance', 'resolve', 'clear_maintenance', 'clear-maintenance'].includes(
+        action,
+      )
+    ) {
+      endpoint = action === 'clear_maintenance' ? 'clear-maintenance' : action;
       body.expectedResourceVersion = incident.resourceVersion;
       body[action === 'maintenance' ? 'reason' : 'resolutionNote'] = note;
     } else throw new Error('Invalid incident action');
     return this.mutate(
-      `/operator/incidents/${id(incident.incidentId)}/${action}`,
+      `/operator/incidents/${id(incident.incidentId)}/${endpoint}`,
       body,
     );
   }
