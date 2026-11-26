@@ -1,3 +1,4 @@
+import { hubLabel, resourceLabel } from '../shared/resource-labels.js';
 import {
   operatorAuthShell,
   operatorShell,
@@ -63,7 +64,7 @@ function vehicleList(filters) {
     `<p class="hint">${t('Chọn phương tiện phù hợp cho chuyến đi của bạn.', 'Choose a vehicle for your trip.')}</p>
     <section class="vehicle-filters"><label>${t('Vị trí và khoảng cách', 'Location and distance')}<select data-vehicle-filter="hub"><option value="">${t('Tất cả Mobility Hub', 'All Mobility Hubs')}</option>${api.hubs.map((h) => `<option value="${e(h.hubId)}" ${filters.hub === h.hubId ? 'selected' : ''}>${e(h.hubName)}</option>`).join('')}</select></label><div class="filter-heading"><strong>${t('Dung lượng pin', 'Battery level')}</strong></div><div class="battery-filters">${[0, 30, 50, 80].map((n) => `<button data-battery-filter="${n}" aria-pressed="${filters.battery === n}">${n ? '≥ ' + n + '%' : t('Tất cả', 'All')}</button>`).join('')}</div></section>
     <div class="filter-heading"><h2>${vehicles.length} ${t('xe khả dụng', 'available vehicles')}</h2><select class="sort-select" data-vehicle-filter="sort" aria-label="${t('Sắp xếp', 'Sort')}"><option value="distance" ${filters.sort === 'distance' ? 'selected' : ''}>${t('Gần nhất', 'Nearest')}</option><option value="battery" ${filters.sort === 'battery' ? 'selected' : ''}>${t('Pin cao nhất', 'Highest battery')}</option></select></div>
-    <div class="rental-cards">${vehicles.map((v) => `<article class="rental-card"><div class="vehicle-glyph">${icon('bike')}</div><div class="rental-card-content"><div class="filter-heading"><strong>${e(v.vehicleId)}</strong><span class="battery-value">${e(v.batteryPct)}%</span></div><p>${e(v.hubName)}</p><div class="filter-heading"><span class="distance-value">${v.distanceKm == null ? t('Chưa có khoảng cách', 'Distance unavailable') : e(v.distanceKm.toFixed(2)) + ' km'}</span>${link(idLink(v.vehicleId), t('Chọn xe', 'Select'), 'button secondary')}</div></div></article>`).join('')}</div>
+    <div class="rental-cards">${vehicles.map((v) => `<article class="rental-card"><div class="vehicle-glyph">${icon('bike')}</div><div class="rental-card-content"><div class="filter-heading"><strong>${e(v.vehicleId)}</strong><span class="battery-value">${Math.round(v.batteryPct)}%</span></div><p>${e(v.hubName)}</p><div class="filter-heading"><span class="distance-value">${v.distanceKm == null ? t('Chưa có khoảng cách', 'Distance unavailable') : e(v.distanceKm.toFixed(2)) + ' km'}</span>${link(idLink(v.vehicleId), t('Chọn xe', 'Select'), 'button secondary')}</div></div></article>`).join('')}</div>
     ${vehicles.length ? '' : `<div class="empty-state">${icon('bike')}<p>${t('Chưa có xe phù hợp. Hãy đổi bộ lọc hoặc tìm tại Hub khác.', 'No matching vehicles. Change filters or search another Hub.')}</p></div>`}
     <button type="button" class="secondary full" data-api-action="nearby-vehicles">${t('Tìm xe gần tôi', 'Find vehicles nearby')}</button>`
   );
@@ -100,7 +101,7 @@ function searchForm(
     <button class="primary full" data-api-action="hub-parking">${t('Đặt chỗ đỗ tại Hub này', 'Book parking at this Hub')}</button>
     ${spaces === null ? '' : parkingAtHub(hub, spaces) + (api.ride?.status === 'ACTIVE' ? parkingAtHub(hub, spaces, true) : '') + commandPanel(command)}
     <button class="secondary full" data-api-action="hub-vehicles">${t('Xem xe tại Hub này', 'View vehicles at this Hub')}</button>
-    ${showVehicles ? `<section class="available-vehicles" aria-live="polite">${hub.vehicles.length ? hub.vehicles.map((v) => link(idLink(v.vehicleId), `${v.vehicleId} · ${v.batteryPct}%`, 'available-vehicle')).join('') : notice(hub.availableVehicleCount === 0 ? 'Hub này hiện không có xe khả dụng. Bạn vẫn có thể xem thông tin Hub hoặc chọn Hub khác.' : 'Chưa có dữ liệu xe khả dụng tại Hub này.', hub.availableVehicleCount === 0 ? 'This Hub currently has no available vehicles. You can still view its information or choose another Hub.' : 'Vehicle availability is not available for this Hub.')}</section>` : ''}
+    ${showVehicles ? `<section class="available-vehicles" aria-live="polite">${hub.vehicles.length ? hub.vehicles.map((v) => link(idLink(v.vehicleId), `${v.vehicleId} · ${Math.round(v.batteryPct)}%`, 'available-vehicle')).join('') : notice(hub.availableVehicleCount === 0 ? 'Hub này hiện không có xe khả dụng. Bạn vẫn có thể xem thông tin Hub hoặc chọn Hub khác.' : 'Chưa có dữ liệu xe khả dụng tại Hub này.', hub.availableVehicleCount === 0 ? 'This Hub currently has no available vehicles. You can still view its information or choose another Hub.' : 'Vehicle availability is not available for this Hub.')}</section>` : ''}
     <button class="secondary full" data-api-action="hub-list">${t('Chọn Hub khác', 'Choose another Hub')}</button>`
     );
   return (
@@ -126,16 +127,31 @@ function vehicleWait(until) {
 }
 function vehicleLabel(id) {
   if (!id?.startsWith('private_')) return id;
+  const registered = api.studentVehicles.find(
+    (vehicle) => vehicle.vehicleId === id,
+  );
+  if (registered?.plate) return registered.plate;
   const plate = /^private_([0-9]{2})([A-Z][A-Z0-9])([0-9]{4,5})$/.exec(id);
-  return plate
-    ? `${plate[1]}-${plate[2]} ${plate[3]}`
-    : t('Chưa có biển số', 'Plate not provided');
+  return plate ? `${plate[1]}-${plate[2]} ${plate[3]}` : id;
 }
 function spaceLabel(id) {
   const number = id?.match(/([0-9]+)$/);
   return number ? t('Ô số ', 'Space ') + Number(number[1]) : id;
 }
 function parkingAtHub(hub, spaces, returning = false) {
+  const parked =
+    returning &&
+    api.studentVehicles.find(
+      (vehicle) => vehicle.vehicleId === api.ride?.vehicleId,
+    )?.parkingSpaceId;
+  if (parked) {
+    if (!spaces.some((s) => s.spaceId === parked))
+      return notice(
+        'Hãy chọn Hub nơi xe đang đỗ.',
+        'Choose the Hub where the vehicle is parked.',
+      );
+    return `<form class="panel" data-api="return"><p>${e(hub.hubName)} · ${e(spaceLabel(parked))}</p><input type="hidden" name="rideId" value="${e(api.ride.rideId)}"><input type="hidden" name="hubId" value="${e(hub.hubId)}"><input type="hidden" name="spaceId" value="${e(parked)}"><button class="primary full">${t('Xác nhận trả xe', 'Confirm return')}</button></form>`;
+  }
   const eligibleVehicles = api.studentVehicles.filter(
     (vehicle) => vehicle.canBookParking,
   );
@@ -169,7 +185,7 @@ function parkingAtHub(hub, spaces, returning = false) {
   return (
     `<section class="panel"><h2>${returning ? t('Trả xe tại Hub này', 'Return vehicle at this Hub') : t('Đặt chỗ đỗ', 'Book parking')}</h2>` +
     (available.length
-      ? `<form data-api="${returning ? 'return' : 'parking'}" class="auth-form">${returning ? `<input type="hidden" name="rideId" value="${e(api.ride.rideId)}">` : ''}${destination}${returning ? '' : times()}<button class="primary full">${returning ? t('Xác nhận trả xe', 'Confirm return') : t('Xác nhận đặt chỗ đỗ', 'Confirm parking reservation')}</button></form>`
+      ? `<form data-api="${returning ? 'return' : 'parking'}" class="auth-form">${returning ? `<input type="hidden" name="rideId" value="${e(api.ride.rideId)}">` : ''}${destination}${returning ? '' : times(true)}<button class="primary full">${returning ? t('Xác nhận trả xe', 'Confirm return') : t('Xác nhận đặt chỗ đỗ', 'Confirm parking reservation')}</button></form>`
       : `${spaces.length ? destination : ''}${notice('Hiện không còn chỗ đỗ khả dụng tại Hub này. Hãy cập nhật hoặc chọn Hub khác.', 'No parking spaces are currently available at this Hub. Refresh or choose another Hub.')}`) +
     '</section>'
   );
@@ -193,14 +209,14 @@ function detailsPage(v) {
     (r) =>
       r.vehicleId === v.vehicleId &&
       r.status === 'ACTIVE' &&
-      (!r.expiresAt || Date.parse(r.expiresAt) > Date.now()),
+      (!r.expiresAt || Date.parse(r.expiresAt) >= Date.now()),
   );
   return (
     mobileHeading(
       t('Chi tiết phương tiện', 'Vehicle details'),
       '/student/vehicles',
     ) +
-    `<section class="vehicle-hero">${icon('bike')}<div><h2>${e(t('Xe máy điện', 'Electric motorbike'))}</h2><p>${e(vehicleLabel(v.vehicleId))}${known ? ' · ' + e(known.hubName) : ''}</p><span class="badge">${e(statusLabel)}</span></div></section><div class="battery-readout">${icon('battery')}<strong>${v.batteryLevel == null ? '—' : e(Number(v.batteryLevel.toFixed(1))) + '%'}</strong><span>${t('Dung lượng pin', 'Battery level')}</span></div><dl class="vehicle-details"><div><dt>${t('Vị trí', 'Location')}</dt><dd>${e(known?.hubName || '—')}</dd></div><div><dt>${t('Trạng thái', 'Status')}</dt><dd>${e(statusLabel)}</dd></div><div><dt>${t('Cập nhật gần nhất', 'Last updated')}</dt><dd>${v.updatedAt ? e(date(v.updatedAt)) : '—'}</dd></div></dl>${missing ? `<p role="status">${e(v.reason || t('Dữ liệu chưa đủ để đặt xe.', 'Insufficient data to reserve.'))}</p>` : ''}${currentRide ? link('/student/return', t('Trả xe này', 'Return this vehicle'), 'button primary full') : currentHold ? link('/student/pickup', t('Nhận xe đã đặt', 'Pick up reserved vehicle'), 'button primary full') : taken ? notice('Xe này đã được đặt hoặc đang được thuê. Vui lòng chọn xe khác.', 'This vehicle is already reserved or rented. Please select another vehicle.') : `<form data-api="reserve" data-id="${e(v.vehicleId)}" class="reservation-form"><details open><summary>${t('Chọn thời gian thuê', 'Choose rental times')}</summary>${times()}</details><button class="primary full" ${blocked ? 'disabled' : ''}>${t('Đặt trước xe này', 'Reserve this vehicle')}</button></form>`}${link('/student/vehicles', t('Chọn phương tiện khác', 'Choose another vehicle'), 'button secondary full')}`
+    `<section class="vehicle-hero">${icon('bike')}<div><h2>${e(t('Xe máy điện', 'Electric motorbike'))}</h2><p>${e(vehicleLabel(v.vehicleId))}${known ? ' · ' + e(known.hubName) : ''}</p><span class="badge">${e(statusLabel)}</span></div></section><div class="battery-readout">${icon('battery')}<strong>${v.batteryLevel == null ? '—' : Math.round(v.batteryLevel) + '%'}</strong><span>${t('Dung lượng pin', 'Battery level')}</span></div><dl class="vehicle-details"><div><dt>${t('Vị trí', 'Location')}</dt><dd>${e(known?.hubName || '—')}</dd></div><div><dt>${t('Trạng thái', 'Status')}</dt><dd>${e(statusLabel)}</dd></div><div><dt>${t('Cập nhật gần nhất', 'Last updated')}</dt><dd>${v.updatedAt ? e(date(v.updatedAt)) : '—'}</dd></div></dl>${missing ? `<p role="status">${e(v.reason || t('Dữ liệu chưa đủ để đặt xe.', 'Insufficient data to reserve.'))}</p>` : ''}${currentRide ? link('/student/return', t('Trả xe này', 'Return this vehicle'), 'button primary full') : currentHold ? link('/student/pickup', t('Nhận xe đã đặt', 'Pick up reserved vehicle'), 'button primary full') : taken ? notice('Xe này đã được đặt hoặc đang được thuê. Vui lòng chọn xe khác.', 'This vehicle is already reserved or rented. Please select another vehicle.') : `<form data-api="reserve" data-id="${e(v.vehicleId)}" class="reservation-form"><details open><summary>${t('Chọn thời gian thuê', 'Choose rental times')}</summary>${times()}</details><button class="primary full" ${blocked ? 'disabled' : ''}>${t('Đặt trước xe này', 'Reserve this vehicle')}</button></form>`}${link('/student/vehicles', t('Chọn phương tiện khác', 'Choose another vehicle'), 'button secondary full')}`
   );
 }
 function remainingTime(deadline) {
@@ -237,7 +253,7 @@ function serviceReceipt(receipt) {
   const [heading, time] = chargeCountdown(start, end, deadline, receipt.status);
   const schedule =
     receipt.status === 'SCHEDULED' || receipt.status === 'CHARGING';
-  const resource = receipt.portId || spaceLabel(receipt.spaceId);
+  const resource = resourceLabel(receipt.portId || receipt.spaceId);
   const canCancelCharge =
     receipt.chargingRequestId &&
     ['SCHEDULED', 'CANCEL_PENDING'].includes(receipt.status);
@@ -246,10 +262,13 @@ function serviceReceipt(receipt) {
   return (
     bookingCard(receipt) +
     (receipt.hubId && resource
-      ? `<p class="hint">${e(receipt.hubId)} · ${e(resource)}</p>`
+      ? `<p class="hint">${e(hubLabel(receipt.hubId, api.hubs))} · ${e(resource)}</p>`
       : '') +
     (schedule && end > start
       ? `<section data-charge-start="${start}" data-charge-end="${end}" data-charge-deadline="${deadline}" data-charge-status="${e(receipt.status)}"><div class="hold-clock"><span>${heading}</span><strong role="timer">${time}</strong></div>${checkIn ? `<button class="primary full" data-confirm-charging="${e(receipt.chargingRequestId)}" ${windowOpen ? '' : 'disabled'}>${t('Xác nhận bắt đầu sạc', 'Confirm charging start')}</button>` : ''}</section>`
+      : '') +
+    (receipt.status === 'CHARGING'
+      ? `<button class="secondary full" data-stop-charging="${e(receipt.chargingRequestId)}">${t('Ngắt sạc', 'Stop charging')}</button>`
       : '') +
     (canCancelCharge
       ? `<button class="danger full" data-cancel-charging="${e(receipt.chargingRequestId)}">${t('Hủy đăng ký sạc', 'Cancel charging booking')}</button>`
@@ -261,7 +280,12 @@ function localDay(date = new Date()) {
     .map((part) => String(part).padStart(2, '0'))
     .join('-');
 }
-function chargingForm(vehicles, hubs, choice, options, loading) {
+function chargingForm(vehicles, hubs, choice, options, loading, batteryText) {
+  if (
+    vehicles.find((v) => v.vehicleId === choice.vehicleId)?.ownership ===
+    'PRIVATE'
+  )
+    return `<section class="auth-form">${vehicleSelect(vehicles, choice.vehicleId, 'data-charging-field')}<p class="hint" role="status">${t('Không khả dụng. Xe cá nhân không được đăng ký sạc.', 'Charging is unavailable for personal vehicles.')}</p></section>`;
   const ports = options?.ports || [];
   const port = ports.find((item) => item.portId === choice.portId);
   const slot = port?.slots.find(
@@ -280,7 +304,17 @@ function chargingForm(vehicles, hubs, choice, options, loading) {
       hour: '2-digit',
       minute: '2-digit',
     });
-  const rows = port?.slots
+  const slots = port?.slots || [];
+  const hourOf = (item) =>
+    String(new Date(item.startAt).getHours()).padStart(2, '0');
+  const hours = [...new Set(slots.map(hourOf))];
+  const hour = hours.includes(choice.slotHour)
+    ? choice.slotHour
+    : slots.length
+      ? hourOf(slots.find((s) => s.available) || slots[0])
+      : '';
+  const rows = slots
+    .filter((s) => hourOf(s) === hour)
     .map(
       (option) =>
         `<label class="charging-slot"><input type="radio" name="startAt" value="${e(option.startAt)}" data-charging-field required ${!option.available ? 'disabled' : ''} ${option === slot ? 'checked' : ''}><span><strong>${e(time(option.startAt))}${option.endAt ? '–' + e(time(option.endAt)) : ''}</strong><small>${option === slot ? t('Đã chọn', 'Selected') : option.available ? t('Còn chỗ', 'Available') : t('Không khả dụng', 'Unavailable')}</small></span></label>`,
@@ -288,14 +322,14 @@ function chargingForm(vehicles, hubs, choice, options, loading) {
     .join('');
   return `<form data-api="charging" class="auth-form charging-form">
     ${vehicleSelect(vehicles, choice.vehicleId, 'data-charging-field')}
-    <label>${t('Mức pin hiện tại', 'Current battery')}<output class="charging-value">${options ? `${e(options.currentBatteryPct)}% · ${t('Đã cập nhật', 'Updated')}` : '—'}</output></label>
-    <label>${t('Mức pin mong muốn (%)', 'Target battery (%)')}<input type="number" name="target" min="1" max="100" step="1" required value="${e(choice.target)}" data-charging-field></label>
+    <label>${t('Mức pin hiện tại', 'Current battery')}<output class="charging-value">${options ? `${Math.round(options.currentBatteryPct)}% · ${t('Đã cập nhật', 'Updated')}` : batteryText}</output></label>
+    <label>${t('Mức pin mong muốn (%)', 'Target battery (%)')}<input type="number" name="target" min="5" max="100" step="5" required value="${e(choice.target)}" data-charging-field></label>
     <label>${t('Thời gian sạc dự kiến', 'Estimated charging time')}<output class="charging-value">${duration || '—'}</output></label>
     <label>Mobility Hub<select name="hubId" required data-charging-field><option value="">${t('Chọn Hub', 'Select Hub')}</option>${hubs.map((hub) => `<option value="${e(hub.hubId)}" ${hub.hubId === choice.hubId ? 'selected' : ''}>${e(hub.hubName)}</option>`).join('')}</select></label>
-    <label>${t('Cổng sạc', 'Charging port')}<select name="portId" required data-charging-field ${ports.length ? '' : 'disabled'}><option value="">${t('Chọn cổng sạc', 'Select a charging port')}</option>${ports.map((item) => `<option value="${e(item.portId)}" ${item === port ? 'selected' : ''}>${e(item.portName || item.portId)}</option>`).join('')}</select></label>
+    <label>${t('Cổng sạc', 'Charging port')}<select name="portId" required data-charging-field ${ports.length ? '' : 'disabled'}><option value="">${t('Chọn cổng sạc', 'Select a charging port')}</option>${ports.map((item) => `<option value="${e(item.portId)}" ${item === port ? 'selected' : ''}>${e(resourceLabel(item.portName || item.portId))}</option>`).join('')}</select></label>
     <label>${t('Ngày sạc', 'Charging day')}<input type="date" name="day" min="${localDay()}" value="${e(choice.day)}" required data-charging-field></label>
     ${options && Number(choice.target) <= options.currentBatteryPct ? notice('Mức pin mong muốn phải cao hơn mức hiện tại.', 'The battery target must be higher than the current level.') : ''}
-    ${loading ? notice('Đang kiểm tra lịch sạc…', 'Checking charging availability…') : rows ? `<fieldset class="charging-slots"><legend>${t('Khung giờ sạc', 'Charging windows')}</legend>${rows}</fieldset>` : ''}
+    ${loading ? notice('Đang kiểm tra lịch sạc…', 'Checking charging availability…') : rows ? `<fieldset class="charging-slots"><legend>${t('Khung giờ sạc', 'Charging windows')}</legend><label>${t('Giờ bắt đầu', 'Starting hour')}<select name="slotHour" data-charging-field>${hours.map((h) => `<option value="${h}" ${hour === h ? 'selected' : ''}>${h}:00</option>`).join('')}</select></label>${rows}</fieldset>` : ''}
     <button class="primary full" ${slot && !loading ? '' : 'disabled'}>${t('Đăng ký sạc', 'Register charging')}</button>
   </form>`;
 }
@@ -325,10 +359,10 @@ function bookingCard(r) {
     ...(states[r.status] || ['Chưa cập nhật', 'Awaiting update']),
   );
   const start = r.scheduledStartAt || r.startsAt || r.requestedStartAt;
-  const end = r.scheduledEndAt || r.endsAt;
-  const appointment = Date.parse(start);
+  const end = r.parkingReservationId ? null : r.scheduledEndAt || r.endsAt;
+  const appointment = Date.parse(start) - (r.reservationId ? 600000 : 0);
   const waiting = Date.now() < appointment;
-  return `<section class="panel"><h2>${heading}</h2><p>${status} · ${e(vehicleLabel(r.vehicleId) || spaceLabel(r.spaceId) || r.portId || '')}</p>${r.expiresAt && r.status === 'ACTIVE' ? `<p>${t('Hết hạn', 'Expires')}: ${e(date(r.expiresAt))}</p>${Number.isFinite(deadline) ? `<div class="hold-clock"><span>${waiting ? t('Bắt đầu sau', 'Starts in') : t('Thời gian giữ chỗ còn lại', 'Hold time remaining')}</span><strong class="hold-countdown" role="timer" data-start="${appointment}" data-deadline="${deadline}">${remainingTime(waiting ? appointment : deadline)}</strong></div>` : ''}` : ''}${start ? `<p>${t('Thời gian sử dụng', 'Usage time')}: ${e(date(start))}${end ? ' → ' + e(date(end)) : ''}</p>` : ''}${r.pickupCode && r.status === 'ACTIVE' ? `<p>${t('Mã nhận xe', 'Pickup code')}: <strong>${e(r.pickupCode)}</strong></p>` : ''}${r.reservationId && r.status === 'ACTIVE' ? link('/student/pickup', t('Quét mã để nhận xe', 'Scan to pick up'), 'button primary full') : ''}${r.parkingReservationId && r.status === 'ACTIVE' ? `<button class="danger full" data-cancel-parking="${e(r.parkingReservationId)}">${t('Hủy đặt chỗ đỗ', 'Cancel parking booking')}</button>` : ''}${r.reservationId && r.status === 'ACTIVE' ? `<button class="danger full" data-cancel-api="${e(r.reservationId)}">${t('Hủy đặt xe', 'Cancel vehicle booking')}</button>` : ''}</section>`;
+  return `<section class="panel"><h2>${heading}</h2><p>${status} · ${e(vehicleLabel(r.vehicleId) || spaceLabel(r.spaceId) || resourceLabel(r.portId) || '')}</p>${r.expiresAt && r.status === 'ACTIVE' ? `<p>${t('Hết hạn', 'Expires')}: ${e(date(r.expiresAt))}</p>${Number.isFinite(deadline) ? `<div class="hold-clock"><span>${waiting ? t('Bắt đầu sau', 'Starts in') : t('Thời gian giữ chỗ còn lại', 'Hold time remaining')}</span><strong class="hold-countdown" role="timer" data-start="${appointment}" data-deadline="${deadline}">${remainingTime(waiting ? appointment : deadline)}</strong></div>` : ''}` : ''}${start ? `<p>${t('Thời gian sử dụng', 'Usage time')}: ${e(date(start))}${end ? ' → ' + e(date(end)) : ''}</p>` : ''}${r.reservationId && r.status === 'ACTIVE' ? `<p>${t('Mã phương tiện để nhận xe', 'Vehicle ID for pickup')}: <strong>${e(r.vehicleId)}</strong></p>` : ''}${r.reservationId && r.status === 'ACTIVE' ? link('/student/pickup', t('Quét mã để nhận xe', 'Scan to pick up'), 'button primary full') : ''}${r.parkingReservationId && r.status === 'CHECKED_IN' ? `<button class="secondary full" data-release-parking="${e(r.parkingReservationId)}">${t('Lấy xe và giải phóng ô đỗ', 'Collect vehicle and free space')}</button>` : ''}${r.parkingReservationId && r.status === 'ACTIVE' ? `<button class="primary full" data-confirm-parking="${e(r.parkingReservationId)}">${t('Xác nhận đỗ xe', 'Confirm parking')}</button><button class="danger full" data-cancel-parking="${e(r.parkingReservationId)}">${t('Hủy đặt chỗ đỗ', 'Cancel parking booking')}</button>` : ''}${r.reservationId && r.status === 'ACTIVE' ? `<button class="danger full" data-cancel-api="${e(r.reservationId)}">${t('Hủy đặt xe', 'Cancel vehicle booking')}</button>` : ''}</section>`;
 }
 function commandPanel(c) {
   if (!c) return '';
@@ -338,7 +372,7 @@ function activePickupHold() {
   return api.reservations.find(
     (r) =>
       r.status === 'ACTIVE' &&
-      (!r.expiresAt || Date.parse(r.expiresAt) > Date.now()),
+      (!r.expiresAt || Date.parse(r.expiresAt) >= Date.now()),
   );
 }
 function pickupForm(command) {
@@ -360,7 +394,7 @@ function pickupForm(command) {
   const hold = activePickupHold();
   return (
     mobileHeading(t('Quét mã QR thuê xe', 'Scan QR to rent')) +
-    `<section class="pickup-screen"><h2>${t('Nhận xe bằng mã QR', 'Pick up with QR code')}</h2><p class="hint">${t('Đưa mã QR vào khung để đối chiếu với lượt đặt xe của bạn.', 'Place the QR code in the frame to match your booking.')}</p><div class="pickup-viewport"><video id="camera" playsinline muted hidden></video><div class="pickup-reticle" aria-hidden="true"><i></i><i></i><i></i><i></i>${icon('qr')}</div></div><p class="hint">${t('Đảm bảo mã QR trên xe rõ ràng và đủ sáng để quét chính xác.', 'Keep the vehicle QR code clear and well lit for an accurate scan.')}</p><button class="primary full" data-api-action="camera">${t('Quét mã xe', 'Scan vehicle code')}</button><button class="secondary full" data-api-action="pickup-damage">${t('Báo xe gặp sự cố', 'Vehicle has a problem')}</button><div id="pickup-damage-help" class="panel" role="status" hidden><p>${t('Không nhận xe nếu phát hiện hư hỏng. Hãy liên hệ nhân viên tại Hub và cung cấp mã xe. Bạn có thể hủy lượt đặt trong mục Lượt đặt.', 'Do not pick up a damaged vehicle. Contact Hub staff with the vehicle ID. You can cancel your reservation in Bookings.')}</p>${link('/student/reservations', t('Xem lượt đặt', 'View bookings'), 'button secondary full')}</div><details class="pickup-alternatives"><summary>${t('Nhập mã hoặc chọn ảnh QR', 'Enter a code or upload QR')}</summary><button type="button" class="secondary full" data-api-action="stop-camera">${t('Dừng camera', 'Stop camera')}</button><label>${t('Chọn ảnh QR', 'Upload QR image')}<input id="api-qr-file" type="file" accept="image/*"></label><form data-api="pickup" class="auth-form">${field('vehicleId', t('Mã phương tiện', 'Vehicle ID'), hold?.vehicleId || selected?.vehicleId || '', 'text', hold ? 'readonly' : '')}${hold ? field('pickupCode', t('Mã nhận xe', 'Pickup code'), '', 'text', 'autocomplete="off"') : ''}<button class="primary full">${t('Xác nhận nhận xe', 'Confirm pickup')}</button></form></details></section>${commandPanel(command)}`
+    `<section class="pickup-screen"><h2>${t('Nhận xe bằng mã QR', 'Pick up with QR code')}</h2><p class="hint">${t('Đưa mã QR vào khung để đối chiếu với lượt đặt xe của bạn.', 'Place the QR code in the frame to match your booking.')}</p><div class="pickup-viewport"><video id="camera" playsinline muted hidden></video><div class="pickup-reticle" aria-hidden="true"><i></i><i></i><i></i><i></i>${icon('qr')}</div></div><p class="hint">${t('Đảm bảo mã QR trên xe rõ ràng và đủ sáng để quét chính xác.', 'Keep the vehicle QR code clear and well lit for an accurate scan.')}</p><button class="primary full" data-api-action="camera">${t('Quét mã xe', 'Scan vehicle code')}</button><button class="secondary full" data-api-action="pickup-damage">${t('Báo xe gặp sự cố', 'Vehicle has a problem')}</button><div id="pickup-damage-help" class="panel" role="status" hidden><p>${t('Không nhận xe nếu phát hiện hư hỏng. Hãy liên hệ nhân viên tại Hub và cung cấp mã xe. Bạn có thể hủy lượt đặt trong mục Lượt đặt.', 'Do not pick up a damaged vehicle. Contact Hub staff with the vehicle ID. You can cancel your reservation in Bookings.')}</p>${link('/student/reservations', t('Xem lượt đặt', 'View bookings'), 'button secondary full')}</div><details class="pickup-alternatives"><summary>${t('Nhập mã hoặc chọn ảnh QR', 'Enter a code or upload QR')}</summary><button type="button" class="secondary full" data-api-action="stop-camera">${t('Dừng camera', 'Stop camera')}</button><label>${t('Chọn ảnh QR', 'Upload QR image')}<input id="api-qr-file" type="file" accept="image/*"></label><form data-api="pickup" data-reservation="${e(hold?.reservationId || '')}" class="auth-form">${field('vehicleId', t('Mã phương tiện', 'Vehicle ID'), hold ? '' : selected?.vehicleId || '', 'text', hold ? 'placeholder="' + e(hold.vehicleId) + '"' : '')}<button class="primary full">${t('Xác nhận nhận xe', 'Confirm pickup')}</button></form></details></section>${commandPanel(command)}`
   );
 }
 export function mountMobileApi(root, path) {
@@ -381,6 +415,39 @@ export function mountMobileApi(root, path) {
   let chargingHubs = null;
   let chargingOptions = null;
   let chargingRequest;
+  let batteryRequest;
+  let batteryVehicle;
+  let batteryText = '—';
+  async function readChargingBattery(vehicleId) {
+    if (batteryVehicle === vehicleId) return;
+    batteryVehicle = vehicleId;
+    batteryRequest?.abort();
+    batteryText = '—';
+    if (
+      !vehicleId ||
+      api.studentVehicles.find((v) => v.vehicleId === vehicleId)?.ownership ===
+        'PRIVATE'
+    )
+      return;
+    const request = new AbortController();
+    batteryRequest = request;
+    batteryText = t('Đang đọc pin…', 'Reading battery…');
+    try {
+      const v = await api.vehicle(vehicleId, request.signal);
+      if (disposed || request.signal.aborted) return;
+      batteryText = Number.isFinite(v.batteryLevel)
+        ? Math.round(v.batteryLevel) +
+          '% · ' +
+          (v.reason
+            ? t('Dữ liệu cũ', 'Last known reading')
+            : t('Đã cập nhật', 'Updated'))
+        : t('Chưa có số đo pin', 'Battery reading unavailable');
+    } catch {
+      if (disposed || request.signal.aborted) return;
+      batteryText = t('Chưa đọc được mức pin', 'Battery reading unavailable');
+    }
+    render();
+  }
   let loadingChargingOptions = false;
   const chargingChoice = {
     vehicleId: '',
@@ -447,9 +514,12 @@ export function mountMobileApi(root, path) {
     chargingOptions = null;
     loadingChargingOptions = false;
     const { vehicleId, hubId, target, day } = chargingChoice;
+    void readChargingBattery(vehicleId);
     const start = new Date(`${day}T00:00:00`);
     if (
       !vehicleId ||
+      api.studentVehicles.find((v) => v.vehicleId === vehicleId)?.ownership ===
+        'PRIVATE' ||
       !hubId ||
       !(Number(target) > 0 && Number(target) <= 100) ||
       !Number.isFinite(+start)
@@ -498,6 +568,16 @@ export function mountMobileApi(root, path) {
     render();
   }
   function errorText(error) {
+    if (error.code === 'PICKUP_TOO_EARLY')
+      return t(
+        'Bạn có thể nhận xe từ 10 phút trước giờ đã đặt.',
+        'Pickup opens ten minutes before your booking.',
+      );
+    if (error.code === 'CHARGE_BEFORE_RETURN')
+      return t(
+        'Hãy ngắt sạc hoặc hủy lịch sạc của xe trong Lượt đặt trước khi trả.',
+        'Stop charging or cancel the charging booking before returning the vehicle.',
+      );
     if (error.code === 'CHARGING_CHECK_IN_NOT_OPEN')
       return t(
         'Chưa đến giờ bắt đầu sạc.',
@@ -1006,8 +1086,8 @@ export function mountMobileApi(root, path) {
         draw(
           mobileHeading(t('Đăng ký sạc', 'Register charging')) +
             notice(
-              'Bạn cần có xe cá nhân hoặc xe thuê đang sử dụng để đăng ký sạc.',
-              'A personal vehicle or an active rental is required to book charging.',
+              'Bạn cần có xe thuê đang sử dụng để đăng ký sạc.',
+              'An active rental is required to book charging.',
             ),
         );
         return;
@@ -1047,6 +1127,7 @@ export function mountMobileApi(root, path) {
             chargingChoice,
             chargingOptions,
             loadingChargingOptions,
+            batteryText,
           ),
       );
       return;
@@ -1160,7 +1241,6 @@ export function mountMobileApi(root, path) {
             f.get('hubId'),
             f.get('spaceId'),
             f.get('start'),
-            f.get('end'),
           );
           if (!disposed) go('/student/parking-confirmed');
         }
@@ -1181,25 +1261,23 @@ export function mountMobileApi(root, path) {
           if (!disposed) go('/student/charging-confirmed');
         }
         if (kind === 'pickup') {
-          if (f.has('pickupCode') && !activePickupHold())
-            throw new Error(
-              t('Lượt giữ xe đã hết hạn.', 'This reservation has expired.'),
-            );
           const hold = activePickupHold();
-          const code = String(f.get('pickupCode') || '').trim();
-          if (hold && hold.pickupCode && String(hold.pickupCode) !== code) {
+          if (
+            form.dataset.reservation &&
+            hold?.reservationId !== form.dataset.reservation
+          )
+            throw new Error(
+              t('Lượt đặt xe đã hết hạn.', 'This reservation has expired.'),
+            );
+          const vehicleId = String(f.get('vehicleId') || '').trim();
+          if (hold && hold.vehicleId !== vehicleId)
             throw new Error(
               t(
-                'Sai mã nhận xe. Hãy kiểm tra mã của lượt đặt này.',
-                'Incorrect pickup code. Check your booking and try again.',
+                'Mã phương tiện không khớp với xe đã đặt.',
+                'Vehicle ID does not match your reservation.',
               ),
             );
-          }
-          await api.pickup(
-            hold?.vehicleId || f.get('vehicleId'),
-            hold?.reservationId,
-            code,
-          );
+          await api.pickup(vehicleId, hold?.reservationId);
           if (!disposed) render();
         }
         if (kind === 'return') {
@@ -1235,8 +1313,6 @@ export function mountMobileApi(root, path) {
       return;
     }
     if (el) el.value = id;
-    const codeField = root.querySelector('[name="pickupCode"]');
-    if (hold?.pickupCode && codeField) codeField.value = hold.pickupCode;
     const details = root.querySelector('.pickup-alternatives');
     if (details) details.open = true;
     el?.focus();
@@ -1366,6 +1442,15 @@ export function mountMobileApi(root, path) {
           if (!disposed) go('/account/student');
         }
       });
+    if (button.dataset.confirmParking || button.dataset.stopCharging) {
+      run(async () => {
+        if (button.dataset.confirmParking)
+          await api.confirmParking(button.dataset.confirmParking);
+        else await api.stopCharging(button.dataset.stopCharging);
+        if (!disposed) render();
+      });
+      return;
+    }
     const cancelChargingId = button.dataset.cancelCharging;
     const confirmChargingId = button.dataset.confirmCharging;
     if (confirmChargingId) {
@@ -1377,6 +1462,7 @@ export function mountMobileApi(root, path) {
     }
     if (
       button.dataset.cancelApi ||
+      button.dataset.releaseParking ||
       button.dataset.cancelParking ||
       cancelChargingId
     )
@@ -1385,11 +1471,18 @@ export function mountMobileApi(root, path) {
           (await confirmAction(
             cancelChargingId
               ? t('Hủy đăng ký sạc này?', 'Cancel this charging booking?')
-              : t('Hủy lượt đặt này?', 'Cancel this reservation?'),
+              : button.dataset.releaseParking
+                ? t(
+                    'Bạn muốn lấy xe và giải phóng ô đỗ này?',
+                    'Collect the vehicle and free this parking space?',
+                  )
+                : t('Hủy lượt đặt này?', 'Cancel this reservation?'),
           )) &&
           !disposed
         ) {
           if (cancelChargingId) await api.cancelCharging(cancelChargingId);
+          else if (button.dataset.releaseParking)
+            await api.releaseParking(button.dataset.releaseParking);
           else if (button.dataset.cancelParking)
             await api.cancelParking(button.dataset.cancelParking);
           else await api.cancel(button.dataset.cancelApi);
@@ -1506,8 +1599,8 @@ export function mountMobileApi(root, path) {
     const el = event.target;
     if (el.hasAttribute('data-charging-field')) {
       chargingChoice[el.name] = el.value;
-      if (el.name === 'startAt' || el.name === 'portId') {
-        if (el.name === 'portId') chargingChoice.startAt = '';
+      if (['startAt', 'portId', 'slotHour'].includes(el.name)) {
+        if (el.name !== 'startAt') chargingChoice.startAt = '';
         render();
       } else {
         chargingChoice.startAt = '';
@@ -1672,6 +1765,7 @@ export function mountMobileApi(root, path) {
     disposed = true;
     chargingRequest?.abort();
     availabilityRequest?.abort();
+    batteryRequest?.abort();
     controller.abort();
     clearInterval(timer);
     clearInterval(countdown);

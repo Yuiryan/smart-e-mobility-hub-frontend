@@ -53,7 +53,7 @@ export function searchPage(d) {
             .filter((v) => v.hubId === h.id && !v.personal)
             .map(
               (v) =>
-                `<a class="vehicle-option" data-search="${e((h.name + ' ' + v.id).toLowerCase())}" href="#/student/vehicles/${e(v.id)}">${icon('bike')}<span><strong>${e(v.id)}</strong><small>${v.battery}% · ${badge(Date.now() - v.observedAt > 120000 ? 'STALE' : v.status)}</small></span>${icon('back', 'forward')}</a>`,
+                `<a class="vehicle-option" data-search="${e((h.name + ' ' + v.id).toLowerCase())}" href="#/student/vehicles/${e(v.id)}">${icon('bike')}<span><strong>${e(v.id)}</strong><small>${Math.round(v.battery)}% · ${badge(Date.now() - v.observedAt > 120000 ? 'STALE' : v.status)}</small></span>${icon('back', 'forward')}</a>`,
             )
             .join('')}</div></details></section>`,
       )
@@ -70,7 +70,7 @@ export function availableVehiclesPage(d) {
       ? `<div class="available-vehicles">${vehicles
           .map((v) => {
             const hub = d.hubs.find((h) => h.id === v.hubId);
-            return `<a class="available-vehicle" href="#/student/vehicles/${encodeURIComponent(v.id)}">${icon('bike')}<span><strong>${t('Xe máy điện', 'Electric motorbike')}</strong><small>${e(v.id)} · ${e(hub?.name || '')}</small><small>${t('Dung lượng pin', 'Battery level')}: ${v.battery}%</small>${badge(v.status)}</span>${icon('back', 'forward')}</a>`;
+            return `<a class="available-vehicle" href="#/student/vehicles/${encodeURIComponent(v.id)}">${icon('bike')}<span><strong>${t('Xe máy điện', 'Electric motorbike')}</strong><small>${e(v.id)} · ${e(hub?.name || '')}</small><small>${t('Dung lượng pin', 'Battery level')}: ${Math.round(v.battery)}%</small>${badge(v.status)}</span>${icon('back', 'forward')}</a>`;
           })
           .join('')}</div>`
       : `<div class="empty" role="status">${t('Hiện chưa có phương tiện khả dụng. Vui lòng thử lại sau.', 'No vehicles are available right now. Please try again later.')}</div>`)
@@ -91,7 +91,7 @@ export function vehiclePage(d, id) {
       t('Chi tiết phương tiện', 'Vehicle details'),
       '/student/vehicles',
     ) +
-    `<section class="vehicle-hero">${icon('bike')}<div><h2>${t('Xe máy điện', 'Electric motorbike')}</h2><p>${e(v.id)} · ${e(d.hubs.find((h) => h.id === v.hubId)?.name)}</p>${badge(stale ? 'STALE' : v.status)}</div></section><div class="battery-readout">${icon('battery')}<strong>${v.battery}%</strong><span>${t('Dung lượng pin', 'Battery level')}</span></div><dl class="vehicle-details"><div><dt>${t('Vị trí', 'Location')}</dt><dd>${e(d.hubs.find((h) => h.id === v.hubId)?.name)}</dd></div><div><dt>${t('Trạng thái', 'Status')}</dt><dd>${badge(stale ? 'STALE' : v.status)}</dd></div><div><dt>${t('Cập nhật gần nhất', 'Last updated')}</dt><dd>${e(new Date(v.observedAt).toLocaleTimeString())}</dd></div></dl><form data-form="reserve" data-id="${e(id)}" class="reservation-form"><details><summary>${t('Chọn thời gian thuê', 'Choose rental times')}</summary>${times()}</details><button class="primary full" ${blocked ? 'disabled' : ''}>${t('Đặt trước xe này', 'Reserve this vehicle')}</button></form>${link('/student/vehicles', t('Chọn phương tiện khác', 'Choose another vehicle'), 'button secondary full')}`
+    `<section class="vehicle-hero">${icon('bike')}<div><h2>${t('Xe máy điện', 'Electric motorbike')}</h2><p>${e(v.id)} · ${e(d.hubs.find((h) => h.id === v.hubId)?.name)}</p>${badge(stale ? 'STALE' : v.status)}</div></section><div class="battery-readout">${icon('battery')}<strong>${Math.round(v.battery)}%</strong><span>${t('Dung lượng pin', 'Battery level')}</span></div><dl class="vehicle-details"><div><dt>${t('Vị trí', 'Location')}</dt><dd>${e(d.hubs.find((h) => h.id === v.hubId)?.name)}</dd></div><div><dt>${t('Trạng thái', 'Status')}</dt><dd>${badge(stale ? 'STALE' : v.status)}</dd></div><div><dt>${t('Cập nhật gần nhất', 'Last updated')}</dt><dd>${e(new Date(v.observedAt).toLocaleTimeString())}</dd></div></dl><form data-form="reserve" data-id="${e(id)}" class="reservation-form"><details><summary>${t('Chọn thời gian thuê', 'Choose rental times')}</summary>${times()}</details><button class="primary full" ${blocked ? 'disabled' : ''}>${t('Đặt trước xe này', 'Reserve this vehicle')}</button></form>${link('/student/vehicles', t('Chọn phương tiện khác', 'Choose another vehicle'), 'button secondary full')}`
   );
 }
 export function reservationConfirmedPage(d) {

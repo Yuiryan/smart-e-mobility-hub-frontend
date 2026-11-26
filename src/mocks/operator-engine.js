@@ -394,13 +394,15 @@ export class OperatorEngine {
         !p.fault &&
         !this.blocked(p.id),
     );
+    const parking = this.metrics().find((h) => h.id === hubId);
     const candidates = this.d.vehicles
       .filter(
         (v) =>
           v.hubId === hubId &&
           !v.personal &&
           ['AVAILABLE', 'LOW_BATTERY'].includes(v.status) &&
-          v.battery < 80 &&
+          parking.used < parking.capacity &&
+          v.battery < 30 &&
           this.now() - v.observedAt <= 120000 &&
           !this.blocked(v.id) &&
           !this.activeBooking(v.id) &&

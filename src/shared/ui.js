@@ -60,8 +60,33 @@ export const empty = (text) =>
   `<div class="empty"><p>${e(text)}</p>${link('/student/hubs', t('Tìm xe', 'Find a vehicle'))}</div>`;
 export const input = (name, label, type = 'text', value = '', extra = '') =>
   `<label>${e(label)}<input name="${name}" type="${type}" value="${e(value)}" ${extra}></label>`;
-export const times = () =>
-  `<div class="form-grid">${input('start', t('Bắt đầu', 'Start'), 'datetime-local', localDate(Date.now()), 'required data-draft')}${input('end', t('Kết thúc', 'End'), 'datetime-local', localDate(Date.now() + 7200000), 'required data-draft')}</div>`;
+function timeField(name, label, timestamp) {
+  const value = localDate(Math.ceil(timestamp / 300000) * 300000);
+  const options = (count, increment, selected) =>
+    Array.from({ length: count }, (_, i) => {
+      const n = String(i * increment).padStart(2, '0');
+      return `<option ${selected === n ? 'selected' : ''}>${n}</option>`;
+    }).join('');
+  return `<fieldset class="booking-time"><legend>${label}</legend><input type="hidden" name="${name}" value="${value}"><input type="date" aria-label="${label} · ${t('Ngày', 'Date')}" required value="${value.slice(0, 10)}"><div><select aria-label="${label} · ${t('Giờ', 'Hour')}">${options(24, 1, value.slice(11, 13))}</select><span>:</span><select aria-label="${label} · ${t('Phút', 'Minute')}">${options(12, 5, value.slice(14, 16))}</select></div></fieldset>`;
+}
+if (typeof document !== 'undefined')
+  document.addEventListener(
+    'change',
+    (event) => {
+      const field = event.target.closest?.('.booking-time');
+      if (!field) return;
+      const day = field.querySelector('[type=date]').value;
+      const [hour, minute] = field.querySelectorAll('select');
+      field.querySelector('[type=hidden]').value = day
+        ? `${day}T${hour.value}:${minute.value}`
+        : '';
+    },
+    true,
+  );
+export const times = (parkingOnly = false) => {
+  const now = Date.now();
+  return `<div class="form-grid">${timeField('start', parkingOnly ? t('Giờ đến đỗ', 'Parking arrival') : t('Bắt đầu', 'Start'), now)}${parkingOnly ? '' : timeField('end', t('Kết thúc', 'End'), now + 7200000)}</div>`;
+};
 export const windowFrom = (form) => ({
   start: new Date(form.get('start')).getTime(),
   end: new Date(form.get('end')).getTime(),

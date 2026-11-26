@@ -522,6 +522,12 @@ it('selects a rented bike, a charging port and an available window on the same s
     field.value = value;
     field.dispatchEvent(new Event('change', { bubbles: true }));
   };
+  choose('vehicleId', 'personal');
+  expect(document.querySelector('[role=status]').textContent).toMatch(
+    /cá nhân|personal/i,
+  );
+  expect(document.querySelector('form[data-api="charging"]')).toBeNull();
+  expect(loadOptions).not.toHaveBeenCalled();
   choose('vehicleId', 'bike-7');
   await vi.waitFor(() =>
     expect(document.querySelector('option[value="free"]')).not.toBeNull(),
@@ -602,7 +608,7 @@ it('confirms charging during the check-in window and removes the cancel action',
     expect.objectContaining({ method: 'POST' }),
   );
 });
-it('shows backend ISO expiry and rental times for parking receipts', () => {
+it('shows parking arrival and hold expiry without a planned collection time', () => {
   mobileApi.session = { user: { role: 'STUDENT' } };
   mobileApi.parking = [
     {
@@ -622,7 +628,7 @@ it('shows backend ISO expiry and rental times for parking receipts', () => {
   const receipt = document.querySelector('.panel');
   expect(receipt.textContent).not.toContain('—');
   expect(receipt.textContent).toContain('2026');
-  expect(receipt.textContent).toContain('→');
+  expect(receipt.textContent).not.toContain('→');
 });
 
 it('finds vehicles from device coordinates, orders them nearest first and alerts on an empty search', async () => {
@@ -669,4 +675,26 @@ it('finds vehicles from device coordinates, orders them nearest first and alerts
   await vi.waitFor(() => expect(alert).toHaveBeenCalledTimes(1));
   expect(root.querySelectorAll('.rental-card')).toHaveLength(0);
   expect(root.querySelector('.hub-browser')).toBeNull();
+});
+
+it('displays the battery of the selected rental before a hub is selected', async () => {
+  mobileApi.session = { user: { role: 'STUDENT' } };
+  mobileApi.studentVehicles = [parkingVehicle];
+  vi.spyOn(mobileApi, 'hubCatalog').mockResolvedValue([
+    { hubId: 'a', hubName: 'A' },
+    { hubId: 'b', hubName: 'B' },
+  ]);
+  vi.spyOn(mobileApi, 'vehicle').mockResolvedValue({
+    vehicleId: 'bike-7',
+    batteryLevel: 34.7,
+  });
+  const options = vi.spyOn(mobileApi, 'chargingOptions');
+  document.body.innerHTML = '<div id="root"></div>';
+  const root = document.querySelector('#root');
+  dispose = mountMobileApi(root, '/student/charging');
+  await vi.waitFor(() =>
+    expect(root.querySelector('output')?.textContent).toContain('35%'),
+  );
+  expect(root.querySelector('[name="hubId"]').value).toBe('');
+  expect(options).not.toHaveBeenCalled();
 });

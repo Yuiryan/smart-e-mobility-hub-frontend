@@ -156,7 +156,13 @@ export class MobileApi {
     if (Array.isArray(data.parking)) {
       this.parking = [
         ...data.parking,
-        ...this.parking.filter((r) => r.status !== 'ACTIVE'),
+        ...this.parking.filter(
+          (r) =>
+            !['ACTIVE', 'CHECKED_IN'].includes(r.status) &&
+            !data.parking.some(
+              (p) => p.parkingReservationId === r.parkingReservationId,
+            ),
+        ),
       ];
     }
     this.ride = ride;
@@ -393,6 +399,21 @@ export class MobileApi {
       throw new Error('Invalid parking spaces response');
     return data.items;
   }
+  async confirmParking(id) {
+    await this.call(
+      `/parking-reservations/${encodeURIComponent(id)}/confirm`,
+      {},
+    );
+    const receipt = this.parking.find(
+      (hold) => hold.parkingReservationId === id,
+    );
+    if (receipt) receipt.status = 'CHECKED_IN';
+    await this.loadJourney();
+  }
+  async stopCharging(id) {
+    await this.call(`/charging-requests/${encodeURIComponent(id)}/stop`, {});
+    await this.loadChargingReceipts();
+  }
   async cancelParking(id) {
     await this.call(
       '/parking-reservations/' + encodeURIComponent(id) + '/cancel',
@@ -403,12 +424,18 @@ export class MobileApi {
     );
     if (receipt) receipt.status = 'CANCELLED';
   }
+  async releaseParking(id) {
+    await this.cancelParking(id);
+    await this.loadJourney();
+  }
   async reserveParking(vehicleId, hubId, spaceId, start, end) {
     const data = await this.call('/parking-reservations', {
       vehicleId: required(vehicleId, 'vehicleId'),
       hubId: required(hubId, 'hubId'),
       spaceId: required(spaceId, 'spaceId'),
-      ...rentalWindow(start, end),
+      ...(end
+        ? rentalWindow(start, end)
+        : { startsAt: new Date(start).toISOString() }),
     });
     if (!data?.parkingReservationId)
       throw new Error('Invalid parking response');
@@ -493,7 +520,7 @@ export class MobileApi {
     if (reservationId)
       Object.assign(body, {
         reservationId,
-        pickupCode: required(pickupCode, 'pickupCode'),
+        ...(pickupCode ? { pickupCode } : {}),
       });
     return this.mutateCommand('/pickups', body, 'PICKUP');
   }

@@ -1013,3 +1013,21 @@ textarea {
   font-size: 2rem;
   line-height: 1.2;
 }
+
+.booking-time {
+  border: 0;
+  padding: 0;
+  min-width: 0;
+  margin: 0;
+}
+.booking-time > div {
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+  margin-top: 0.35rem;
+}
+.booking-time input,
+.booking-time select {
+  width: 100%;
+  min-width: 0;
+}
